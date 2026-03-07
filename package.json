@@ -12,6 +12,7 @@
     "build:electron": "tsc electron/main.ts electron/preload.cts --outDir dist-electron --target ES2022 --module NodeNext --moduleResolution NodeNext"
   },
   "dependencies": {
+    "@types/ssh2": "^1.15.5",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^40.8.0",
@@ -19,6 +20,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",
+    "ssh2": "^1.17.0",
     "wait-on": "^9.0.4"
   },
   "devDependencies": {

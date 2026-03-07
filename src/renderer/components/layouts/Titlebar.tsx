@@ -29,10 +29,10 @@ const Titlebar: React.FC = () => {
             <div
                 className="flex flex-1 px-4 items-center h-full space-x-2 app-region-drag"
             >
-                <a href="/" className="font-semibold tracking-wide text-xs cursor-pointer flex items-center gap-2">
+                <span className="font-semibold tracking-wide text-xs cursor-pointer flex items-center gap-2">
                     <img src={Logo} alt="Logo" className="w-8 h-8" />
                     <span className="text-lg">UlakSSH</span>
-                </a>
+                </span>
             </div>
             <div className="flex h-full app-region-no-drag">
                 <Link to={isSettings ? "/" : "/settings"} className="h-full px-4 hover:bg-gray-800 transition-colors flex items-center justify-center outline-none" aria-label={isSettings ? "Home" : "Settings"}>

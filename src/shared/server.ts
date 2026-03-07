@@ -7,5 +7,7 @@ export type Server = {
     authType: "password" | "key";
     password?: string;
     privateKey?: string;
+    privateKeyPath?: string;
+    passphrase?: string;
     color?: string;
 }

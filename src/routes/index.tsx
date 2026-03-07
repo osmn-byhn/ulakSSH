@@ -2,7 +2,7 @@ import { createBrowserRouter, Outlet } from "react-router-dom";
 import Home from "../renderer/pages/Home";
 import Settings from "../renderer/pages/Settings";
 import ServerDetail from "../renderer/pages/ServerDetail";
-import Titlebar from "../renderer/components/ui/Titlebar";
+import Titlebar from "../renderer/components/layouts/Titlebar";
 
 const Layout = () => {
     return (

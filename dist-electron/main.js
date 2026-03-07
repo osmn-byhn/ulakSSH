@@ -34,6 +34,19 @@ const createWindow = () => {
     ipcMain.on('window-close', () => {
         win.close();
     });
+    ipcMain.handle('add-server', (event, serverData) => {
+        // dynamically import to ensure it works correctly with file paths
+        const { addSshServer } = require('../src/main/utils/addSsh');
+        return addSshServer(serverData);
+    });
+    ipcMain.handle('get-servers', (event) => {
+        const { getServers } = require('../src/main/utils/getServers');
+        return getServers();
+    });
+    ipcMain.handle('delete-server', (event, id) => {
+        const { deleteSshServer } = require('../src/main/utils/deleteSsh');
+        return deleteSshServer(id);
+    });
 };
 app.whenReady().then(() => {
     Menu.setApplicationMenu(null);

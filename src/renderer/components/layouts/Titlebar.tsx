@@ -43,6 +43,7 @@ const Titlebar: React.FC = () => {
                     )}
                 </Link>
                 <span
+
                     onClick={handleMinimize}
                     className="h-full px-4 hover:bg-gray-800 transition-colors flex items-center justify-center outline-none"
                     aria-label="Minimize"

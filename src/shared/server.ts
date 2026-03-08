@@ -1,3 +1,5 @@
+export type OsType = 'ubuntu' | 'debian' | 'centos' | 'arch' | 'fedora' | 'linux' | 'windows' | 'macos' | 'alpine' | 'suse';
+
 export type Server = {
     id: string;
     name: string;
@@ -10,4 +12,5 @@ export type Server = {
     privateKeyPath?: string;
     passphrase?: string;
     color?: string;
+    os?: string;
 }

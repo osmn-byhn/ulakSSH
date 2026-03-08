@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Modal from "../components/ui/Modal";
-import type { Server } from "../../shared/server";
+import OsIcon from "../components/ui/OsIcon";
+import type { Server, OsType } from "../../shared/server";
 
 const Home: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -16,7 +18,9 @@ const Home: React.FC = () => {
     const [privateKey, setPrivateKey] = useState('');
     const [privateKeyPath, setPrivateKeyPath] = useState('');
     const [passphrase, setPassphrase] = useState('');
+    const [os, setOs] = useState<OsType>('linux');
 
+    const navigate = useNavigate();
     const api = (window as any).api;
 
     const loadServers = async () => {
@@ -41,6 +45,7 @@ const Home: React.FC = () => {
         setPrivateKey('');
         setPrivateKeyPath('');
         setPassphrase('');
+        setOs('linux');
     };
 
     const handleOpenModal = () => {
@@ -62,6 +67,7 @@ const Home: React.FC = () => {
             privateKey: authType === 'key' ? privateKey : undefined,
             privateKeyPath: authType === 'key' ? privateKeyPath : undefined,
             passphrase: authType === 'key' && passphrase ? passphrase : undefined,
+            os,
         };
 
         if (api?.addServer) {
@@ -110,8 +116,23 @@ const Home: React.FC = () => {
                         {servers.map((server, idx) => (
                             <div key={server.id || idx} className="bg-gray-900 border border-gray-800 hover:border-indigo-500/50 rounded-xl p-5 hover:bg-gray-800/80 transition-all group cursor-pointer shadow-sm hover:shadow-indigo-900/20">
                                 <div className="flex justify-between items-start mb-3">
-                                    <h3 className="font-semibold text-lg text-gray-100 truncate">{server.name}</h3>
-                                    <span className="bg-green-500/10 text-green-400 text-xs px-2 py-1 rounded-md font-medium">Ready</span>
+                                    <div className="flex items-center gap-3 truncate">
+                                        <OsIcon os={server.os} className="w-8 h-8 flex-shrink-0" />
+                                        <h3 className="font-semibold text-lg text-gray-100 truncate">{server.name}</h3>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <span className="bg-green-500/10 text-green-400 text-xs px-2 py-1 rounded-md font-medium">Ready</span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(`/server/${server.id}`);
+                                            }}
+                                            className="text-gray-400 hover:text-indigo-400 bg-gray-800 hover:bg-gray-700 p-1.5 rounded-lg transition-all shadow-sm"
+                                            title="Connect to Server"
+                                        >
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="text-sm text-gray-400 space-y-1">
                                     <div className="flex items-center gap-2 truncate">
@@ -182,6 +203,26 @@ const Home: React.FC = () => {
                                 max="65535"
                             />
                         </div>
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Operating System</label>
+                        <select
+                            value={os}
+                            onChange={(e) => setOs(e.target.value as OsType)}
+                            className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium appearance-none"
+                        >
+                            <option value="linux">Linux (Generic)</option>
+                            <option value="ubuntu">Ubuntu</option>
+                            <option value="debian">Debian</option>
+                            <option value="centos">CentOS / RHEL</option>
+                            <option value="fedora">Fedora</option>
+                            <option value="arch">Arch Linux</option>
+                            <option value="alpine">Alpine Linux</option>
+                            <option value="suse">openSUSE</option>
+                            <option value="macos">macOS</option>
+                            <option value="windows">Windows</option>
+                        </select>
                     </div>
 
                     <div className="pt-2 border-t border-gray-800">

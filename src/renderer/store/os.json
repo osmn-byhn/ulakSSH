@@ -1,0 +1,285 @@
+{
+    "ubuntu": {
+        "name": "Ubuntu Server",
+        "detect": [
+            "ubuntu"
+        ],
+        "icon": "https://skillicons.dev/icons?i=ubuntu"
+    },
+    "debian": {
+        "name": "Debian",
+        "detect": [
+            "debian"
+        ],
+        "icon": "https://skillicons.dev/icons?i=debian"
+    },
+    "rhel": {
+        "name": "Red Hat Enterprise Linux",
+        "detect": [
+            "rhel",
+            "redhat"
+        ],
+        "icon": "https://skillicons.dev/icons?i=redhat"
+    },
+    "rocky": {
+        "name": "Rocky Linux",
+        "detect": [
+            "rocky"
+        ],
+        "icon": "https://skillicons.dev/icons?i=rocky"
+    },
+    "almalinux": {
+        "name": "AlmaLinux",
+        "detect": [
+            "almalinux"
+        ],
+        "icon": ""
+    },
+    "centos": {
+        "name": "CentOS Stream",
+        "detect": [
+            "centos"
+        ],
+        "icon": ""
+    },
+    "amazon": {
+        "name": "Amazon Linux",
+        "detect": [
+            "amzn",
+            "amazon"
+        ],
+        "icon": ""
+    },
+    "oracle": {
+        "name": "Oracle Linux",
+        "detect": [
+            "ol",
+            "oracle"
+        ],
+        "icon": ""
+    },
+    "sles": {
+        "name": "SUSE Linux Enterprise Server",
+        "detect": [
+            "sles",
+            "suse"
+        ],
+        "icon": ""
+    },
+    "alpine": {
+        "name": "Alpine Linux",
+        "detect": [
+            "alpine"
+        ],
+        "icon": ""
+    },
+    "arch": {
+        "name": "Arch Linux",
+        "detect": [
+            "arch"
+        ],
+        "icon": ""
+    },
+    "gentoo": {
+        "name": "Gentoo",
+        "detect": [
+            "gentoo"
+        ],
+        "icon": ""
+    },
+    "fedora": {
+        "name": "Fedora Server",
+        "detect": [
+            "fedora"
+        ],
+        "icon": ""
+    },
+    "coreos": {
+        "name": "Fedora CoreOS",
+        "detect": [
+            "fedora-coreos"
+        ],
+        "icon": ""
+    },
+    "flatcar": {
+        "name": "Flatcar Container Linux",
+        "detect": [
+            "flatcar"
+        ],
+        "icon": ""
+    },
+    "talos": {
+        "name": "Talos Linux",
+        "detect": [
+            "talos"
+        ],
+        "icon": ""
+    },
+    "rancheros": {
+        "name": "RancherOS",
+        "detect": [
+            "rancheros"
+        ],
+        "icon": ""
+    },
+    "cloudlinux": {
+        "name": "CloudLinux",
+        "detect": [
+            "cloudlinux"
+        ],
+        "icon": ""
+    },
+    "clearlinux": {
+        "name": "Clear Linux",
+        "detect": [
+            "clear-linux"
+        ],
+        "icon": ""
+    },
+    "photon": {
+        "name": "Photon OS",
+        "detect": [
+            "photon"
+        ],
+        "icon": ""
+    },
+    "opensuse-leap": {
+        "name": "openSUSE Leap",
+        "detect": [
+            "opensuse-leap"
+        ],
+        "icon": ""
+    },
+    "opensuse-tumbleweed": {
+        "name": "openSUSE Tumbleweed",
+        "detect": [
+            "opensuse-tumbleweed"
+        ],
+        "icon": ""
+    },
+    "nixos": {
+        "name": "NixOS",
+        "detect": [
+            "nixos"
+        ],
+        "icon": ""
+    },
+    "void": {
+        "name": "Void Linux",
+        "detect": [
+            "void"
+        ],
+        "icon": ""
+    },
+    "slackware": {
+        "name": "Slackware",
+        "detect": [
+            "slackware"
+        ],
+        "icon": ""
+    },
+    "devuan": {
+        "name": "Devuan",
+        "detect": [
+            "devuan"
+        ],
+        "icon": ""
+    },
+    "kali": {
+        "name": "Kali Linux",
+        "detect": [
+            "kali"
+        ],
+        "icon": ""
+    },
+    "parrot": {
+        "name": "Parrot OS",
+        "detect": [
+            "parrot"
+        ],
+        "icon": ""
+    },
+    "freebsd": {
+        "name": "FreeBSD",
+        "detect": [
+            "freebsd"
+        ],
+        "icon": ""
+    },
+    "openbsd": {
+        "name": "OpenBSD",
+        "detect": [
+            "openbsd"
+        ],
+        "icon": ""
+    },
+    "netbsd": {
+        "name": "NetBSD",
+        "detect": [
+            "netbsd"
+        ],
+        "icon": ""
+    },
+    "dragonfly": {
+        "name": "DragonFly BSD",
+        "detect": [
+            "dragonfly"
+        ],
+        "icon": ""
+    },
+    "truenas-scale": {
+        "name": "TrueNAS SCALE",
+        "detect": [
+            "truenas"
+        ],
+        "icon": ""
+    },
+    "truenas-core": {
+        "name": "TrueNAS CORE",
+        "detect": [
+            "freenas"
+        ],
+        "icon": ""
+    },
+    "openmediavault": {
+        "name": "OpenMediaVault",
+        "detect": [
+            "openmediavault"
+        ],
+        "icon": ""
+    },
+    "pfsense": {
+        "name": "pfSense",
+        "detect": [
+            "pfsense"
+        ],
+        "icon": ""
+    },
+    "opnsense": {
+        "name": "OPNsense",
+        "detect": [
+            "opnsense"
+        ],
+        "icon": ""
+    },
+    "vyos": {
+        "name": "VyOS",
+        "detect": [
+            "vyos"
+        ],
+        "icon": ""
+    },
+    "clearos": {
+        "name": "ClearOS",
+        "detect": [
+            "clearos"
+        ],
+        "icon": ""
+    },
+    "zentyal": {
+        "name": "Zentyal",
+        "detect": [
+            "zentyal"
+        ]
+    }
+}

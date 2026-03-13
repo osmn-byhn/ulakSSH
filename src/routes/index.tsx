@@ -2,6 +2,7 @@ import { createBrowserRouter, Outlet } from "react-router-dom";
 import Home from "../renderer/pages/Home";
 import Settings from "../renderer/pages/Settings";
 import ServerDetail from "../renderer/pages/ServerDetail";
+import TerminalWindow from "../renderer/pages/TerminalWindow";
 import Titlebar from "../renderer/components/layouts/Titlebar";
 
 const Layout = () => {
@@ -32,7 +33,12 @@ const router = createBrowserRouter([
                 element: <ServerDetail />,
             },
         ]
-    }
+    },
+    // Terminal runs full-screen outside the Layout (has its own tab bar & close button)
+    {
+        path: "/terminal/:id",
+        element: <TerminalWindow />,
+    },
 ]);
 
 export default router;

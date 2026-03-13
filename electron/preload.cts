@@ -19,5 +19,28 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on(`terminal-close-${id}`, () => callback());
   },
   sendTerminalData: (id: string, data: string) => ipcRenderer.send('terminal-input', id, data),
-  resizeTerminal: (id: string, cols: number, rows: number) => ipcRenderer.send('terminal-resize', id, cols, rows)
+  resizeTerminal: (id: string, cols: number, rows: number) => ipcRenderer.send('terminal-resize', id, cols, rows),
+  getSystemInfo: (id: string) => ipcRenderer.invoke('get-system-info', id),
+
+  // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
+  tabSpawn: (serverId: string, tabId: string, cols: number, rows: number) =>
+    ipcRenderer.invoke('tab-spawn', serverId, tabId, cols, rows),
+  tabInput: (tabId: string, data: string) =>
+    ipcRenderer.send('tab-input', tabId, data),
+  tabResize: (tabId: string, cols: number, rows: number) =>
+    ipcRenderer.send('tab-resize', tabId, cols, rows),
+  tabKill: (tabId: string) =>
+    ipcRenderer.send('tab-kill', tabId),
+  onTabOutput: (tabId: string, callback: (data: string) => void) => {
+    const channel = `tab-output-${tabId}`;
+    ipcRenderer.removeAllListeners(channel);
+    ipcRenderer.on(channel, (_event: any, data: string) => callback(data));
+    return () => ipcRenderer.removeAllListeners(channel);
+  },
+  onTabExit: (tabId: string, callback: () => void) => {
+    const channel = `tab-exit-${tabId}`;
+    ipcRenderer.removeAllListeners(channel);
+    ipcRenderer.on(channel, () => callback());
+    return () => ipcRenderer.removeAllListeners(channel);
+  },
 });

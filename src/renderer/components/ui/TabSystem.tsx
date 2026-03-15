@@ -20,10 +20,10 @@ const TabSystem: React.FC<TabSystemProps> = ({ tabs, defaultTabId, className = "
     const activeTab = tabs.find(t => t.id === activeTabId);
 
     return (
-        <div className={`flex flex-col gap-4 ${fullHeight ? 'h-full' : ''} ${className}`}>
+        <div className={`flex flex-col gap-4  ${fullHeight ? 'h-full' : ''} ${className}`}>
             {/* Tab Bar */}
             <div
-                className="glass rounded-2xl p-1.5 flex gap-1 self-start shrink-0"
+                className="glass rounded-2xl p-1.5 flex gap-1 overflow-x-scroll"
                 style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
             >
                 {tabs.map(tab => {

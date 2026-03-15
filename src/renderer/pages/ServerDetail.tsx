@@ -4,13 +4,477 @@ import Alert from "../components/ui/Alert";
 import NeofetchInfo from "../components/ui/NeofetchInfo";
 import TabSystem from "../components/ui/TabSystem";
 import CodeEditor from "../components/ui/CodeEditor";
+import Editor from "@monaco-editor/react";
 import type { AlertType } from "../components/ui/Alert";
 import type { Server } from "../../shared/server";
 
-const Folders: React.FC = () => {
-    return (
-        <div className="h-full">
+const FolderIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22 19V9C22 7.89543 21.1046 7 20 7H12L10 5H4C2.89543 5 2 5.89543 2 7V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19Z" fill="currentColor" fillOpacity="0.2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+);
 
+const FileIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V9L13 2Z" fill="currentColor" fillOpacity="0.1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M13 2V9H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const getLanguage = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    switch (ext) {
+        case 'ts':
+        case 'tsx': return 'typescript';
+        case 'js':
+        case 'jsx': return 'javascript';
+        case 'json': return 'json';
+        case 'md': return 'markdown';
+        case 'html': return 'html';
+        case 'css': return 'css';
+        case 'py': return 'python';
+        case 'sh': return 'shell';
+        case 'yml':
+        case 'yaml': return 'yaml';
+        case 'rs': return 'rust';
+        case 'go': return 'go';
+        case 'cpp':
+        case 'h': return 'cpp';
+        case 'java': return 'java';
+        default: return 'text';
+    }
+};
+
+interface EditorModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    filename: string;
+    content: string;
+    onSave: (newContent: string) => Promise<void>;
+}
+
+const EditorModal: React.FC<EditorModalProps> = ({ isOpen, onClose, filename, content, onSave }) => {
+    const [editorValue, setEditorValue] = useState(content);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        setEditorValue(content);
+    }, [content, isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            await onSave(editorValue);
+            onClose();
+        } catch (err) {
+            console.error("Save failed:", err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const language = getLanguage(filename);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+            <div className="glass w-full max-w-6xl h-[85vh] flex flex-col rounded-3xl overflow-hidden border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                {/* Header */}
+                <div className="p-4 px-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2.5 rounded-2xl bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20">
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" />
+                            </svg>
+                        </div>
+                        <div className="flex flex-col">
+                            <h3 className="text-sm font-bold tracking-tight text-white/90">{filename}</h3>
+                            <div className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#06b6d4] animate-pulse" />
+                                <p className="text-[10px] font-mono text-[#06b6d4] uppercase tracking-widest font-black">{language} edit mode</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full text-muted hover:text-white transition-all border border-transparent hover:border-white/10"
+                    >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* Editor Body */}
+                <div className="flex-1 overflow-hidden">
+                    <Editor
+                        height="100%"
+                        language={language}
+                        theme="vs-dark"
+                        value={editorValue}
+                        onChange={(val) => setEditorValue(val || '')}
+                        options={{
+                            minimap: { enabled: true },
+                            fontSize: 14,
+                            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                            padding: { top: 16 },
+                            renderLineHighlight: 'all',
+                            lineNumbers: 'on',
+                            scrollbar: {
+                                vertical: 'visible',
+                                horizontal: 'visible',
+                                useShadows: false,
+                                verticalHasArrows: false,
+                                horizontalHasArrows: false,
+                                verticalScrollbarSize: 10,
+                                horizontalScrollbarSize: 10,
+                            }
+                        }}
+                    />
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 px-6 border-t border-white/5 flex items-center justify-between bg-white/5">
+                    <p className="text-[10px] font-mono text-muted/50 uppercase tracking-widest hidden sm:block">
+                        Monaco Editor Core - VS Code Powered
+                    </p>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <button
+                            onClick={onClose}
+                            className="flex-1 sm:flex-none px-8 py-2.5 rounded-2xl text-[10px] font-black font-mono tracking-widest uppercase text-muted hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="flex-1 sm:flex-none px-8 py-2.5 rounded-2xl bg-[#06b6d4] hover:bg-[#06b6d4]/80 text-black text-[10px] font-black font-mono tracking-widest uppercase shadow-[0_0_30px_rgba(6,182,212,0.2)] hover:shadow-[0_0_40px_rgba(6,182,212,0.3)] transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                        >
+                            {saving ? (
+                                <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                            ) : (
+                                <svg className="w-4 h-4 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+                                </svg>
+                            )}
+                            {saving ? 'Processing...' : 'Save File'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (msg: string, type: AlertType) => void }> = ({ server, connected, triggerAlert }) => {
+    const [path, setPath] = useState('/');
+    const [items, setItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Settings from localStorage
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>(
+        (localStorage.getItem('ulakssh_view_mode') as 'grid' | 'list') || 'grid'
+    );
+    const [sortBy, setSortBy] = useState<'name' | 'size' | 'mtime'>(
+        (localStorage.getItem('ulakssh_sort_by') as 'name' | 'size' | 'mtime') || 'name'
+    );
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(
+        (localStorage.getItem('ulakssh_sort_order') as 'asc' | 'desc') || 'asc'
+    );
+
+    const [selectedFile, setSelectedFile] = useState<{ name: string, content: string, path: string } | null>(null);
+
+    const api = (window as any).api;
+
+    useEffect(() => {
+        if (connected) {
+            loadDirectory(path);
+        }
+    }, [path, connected]);
+
+    useEffect(() => {
+        localStorage.setItem('ulakssh_view_mode', viewMode);
+    }, [viewMode]);
+
+    useEffect(() => {
+        localStorage.setItem('ulakssh_sort_by', sortBy);
+        localStorage.setItem('ulakssh_sort_order', sortOrder);
+    }, [sortBy, sortOrder]);
+
+    const loadDirectory = async (dirPath: string) => {
+        if (!api || !connected) return;
+        setLoading(true);
+        try {
+            const result = await api.listDirectory(server.id, dirPath);
+            if (result.error) {
+                console.error("SFTP error:", result.error);
+                triggerAlert(`SFTP Error: ${result.error}`, "error");
+                setItems([]);
+            } else {
+                // Filter out self and parent links
+                const filtered = result.filter((item: any) => item.name !== '.' && item.name !== '..');
+                setItems(filtered);
+            }
+        } catch (err) {
+            console.error("Failed to list directory:", err);
+            triggerAlert("Failed to fetch directory contents", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleItemClick = async (item: any) => {
+        const fullPath = path.endsWith('/') ? `${path}${item.name}` : `${path}/${item.name}`;
+
+        if (item.isDirectory) {
+            setPath(fullPath);
+        } else {
+            // Open editor for files
+            setLoading(true);
+            try {
+                const content = await api.readRemoteFile(server.id, fullPath);
+                if (content && typeof content === 'string') {
+                    setSelectedFile({ name: item.name, content, path: fullPath });
+                } else if (content?.error) {
+                    triggerAlert(`Failed to read file: ${content.error}`, "error");
+                }
+            } catch (err) {
+                console.error("Read file error:", err);
+                triggerAlert("Failed to read remote file content", "error");
+            } finally {
+                setLoading(false);
+            }
+        }
+    };
+
+    const handleSaveFile = async (newContent: string) => {
+        if (!selectedFile) return;
+        try {
+            const result = await api.writeRemoteFile(server.id, selectedFile.path, newContent);
+            if (result.success) {
+                triggerAlert("File saved successfully", "info");
+                // Update local content in case we keep it open
+                setSelectedFile({ ...selectedFile, content: newContent });
+            } else {
+                triggerAlert(`Failed to save: ${result.error}`, "error");
+            }
+        } catch (err) {
+            console.error("Save file error:", err);
+            triggerAlert("Critical error while saving file", "error");
+        }
+    };
+
+    const navigateToBreadcrumb = (index: number) => {
+        const parts = path.split('/').filter(p => p);
+        const newPath = '/' + parts.slice(0, index + 1).join('/');
+        setPath(newPath === '//' ? '/' : newPath);
+    };
+
+    const formatSize = (bytes: number) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    const formatDate = (mtime: number) => {
+        return new Date(mtime).toLocaleString();
+    };
+
+    // Filter and Sort
+    const filteredItems = items.filter(item =>
+        searchQuery.length < 3 || item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ).sort((a, b) => {
+        // Always folders first
+        if (a.isDirectory && !b.isDirectory) return -1;
+        if (!a.isDirectory && b.isDirectory) return 1;
+
+        let comparison = 0;
+        if (sortBy === 'name') comparison = a.name.localeCompare(b.name);
+        else if (sortBy === 'size') comparison = a.size - b.size;
+        else if (sortBy === 'mtime') comparison = a.mtime - b.mtime;
+
+        return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    const breadcrumbs = path.split('/').filter(p => p);
+
+    return (
+        <div className="flex flex-col gap-4 animate-fade-in h-[500px]">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-4 glass rounded-2xl p-3 border border-white/5">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[200px]">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                    </svg>
+                    <input
+                        type="text"
+                        placeholder="Search items (min 3 chars)..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all"
+                    />
+                </div>
+
+                {/* Controls */}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => loadDirectory(path)}
+                        disabled={loading || !connected}
+                        className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-muted disabled:opacity-30"
+                        title="Refresh"
+                    >
+                        <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.22L21 7V1" />
+                        </svg>
+                    </button>
+
+                    <div className="w-px h-6 bg-white/10 mx-1" />
+
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-[10px] font-mono font-bold uppercase tracking-wider outline-none cursor-pointer hover:bg-white/10"
+                    >
+                        <option value="name">Sort: Name</option>
+                        <option value="size">Sort: Size</option>
+                        <option value="mtime">Sort: Date</option>
+                    </select>
+
+                    <button
+                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        className="p-2 px-4 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-muted"
+                    >
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                    </button>
+
+                    <div className="w-px h-6 bg-white/10 mx-1" />
+
+                    <button
+                        onClick={() => setViewMode('grid')}
+                        className={`p-2 rounded-xl border transition-all ${viewMode === 'grid' ? 'bg-[#06b6d4]/10 border-[#06b6d4]/30 text-[#06b6d4]' : 'bg-white/5 border-white/10 text-muted hover:bg-white/10'}`}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+                        </svg>
+                    </button>
+                    <button
+                        onClick={() => setViewMode('list')}
+                        className={`p-2 rounded-xl border transition-all ${viewMode === 'list' ? 'bg-[#06b6d4]/10 border-[#06b6d4]/30 text-[#06b6d4]' : 'bg-white/5 border-white/10 text-muted hover:bg-white/10'}`}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {/* Breadcrumbs */}
+            <div className="flex items-center gap-2 text-[10px] font-mono px-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                <button
+                    onClick={() => setPath('/')}
+                    className={`hover:text-[#06b6d4] transition-colors ${path === '/' ? 'text-[#06b6d4]' : 'text-muted'}`}
+                >
+                    ROOT
+                </button>
+                {breadcrumbs.map((part, i) => (
+                    <React.Fragment key={i}>
+                        <span className="text-white/10">/</span>
+                        <button
+                            onClick={() => navigateToBreadcrumb(i)}
+                            className={`hover:text-[#06b6d4] transition-colors ${i === breadcrumbs.length - 1 ? 'text-[#06b6d4]' : 'text-muted'}`}
+                        >
+                            {part}
+                        </button>
+                    </React.Fragment>
+                ))}
+            </div>
+
+            {/* List/Grid Container */}
+            <div className="flex-1 overflow-y-auto glass rounded-2xl p-4 border border-white/5 scrollbar-thin">
+                {loading ? (
+                    <div className="h-full flex flex-col items-center justify-center gap-3 py-20">
+                        <div className="w-8 h-8 border-2 border-[#06b6d4]/30 border-t-[#06b6d4] rounded-full animate-spin" />
+                        <span className="text-xs font-mono text-muted animate-pulse">Scanning filesystem...</span>
+                    </div>
+                ) : filteredItems.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center gap-2 py-20 opacity-30">
+                        {loading ? (
+                            <div className="w-8 h-8 border-2 border-[#06b6d4]/30 border-t-[#06b6d4] rounded-full animate-spin mb-2" />
+                        ) : (
+                            <svg className="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                                <path d="M22 19V9C22 7.89543 21.1046 7 20 7H12L10 5H4C2.89543 5 2 5.89543 2 7V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19Z" />
+                            </svg>
+                        )}
+                        <span className="text-sm font-mono tracking-widest uppercase">{loading ? 'Scanning...' : 'Directory Empty'}</span>
+                    </div>
+                ) : viewMode === 'grid' ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                        {filteredItems.map((item, i) => (
+                            <button
+                                key={i}
+                                onClick={() => handleItemClick(item)}
+                                className="group flex flex-col items-center gap-2 p-3 rounded-xl border border-transparent hover:border-white/10 hover:bg-white/5 transition-all outline-none text-center"
+                            >
+                                <div className="relative">
+                                    {item.isDirectory ? (
+                                        <FolderIcon className="w-12 h-12 text-[#06b6d4] group-hover:scale-110 transition-transform" />
+                                    ) : (
+                                        <FileIcon className="w-12 h-12 text-muted group-hover:scale-110 transition-transform" />
+                                    )}
+                                </div>
+                                <span className="text-[10px] font-mono leading-tight truncate w-full group-hover:text-white transition-colors">
+                                    {item.name}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <table className="w-full text-left border-collapse font-mono text-[10px]">
+                        <thead>
+                            <tr className="text-muted border-b border-white/5">
+                                <th className="pb-3 pl-2 font-bold uppercase tracking-widest">Name</th>
+                                <th className="pb-3 font-bold uppercase tracking-widest text-right">Size</th>
+                                <th className="pb-3 pl-10 font-bold uppercase tracking-widest">Modified</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredItems.map((item, i) => (
+                                <tr
+                                    key={i}
+                                    onClick={() => handleItemClick(item)}
+                                    className="group hover:bg-white/5 cursor-pointer transition-colors"
+                                >
+                                    <td className="py-2.5 pl-2 flex items-center gap-3 max-w-[300px]">
+                                        {item.isDirectory ? (
+                                            <FolderIcon className="w-4 h-4 text-[#06b6d4] shrink-0" />
+                                        ) : (
+                                            <FileIcon className="w-4 h-4 text-muted shrink-0" />
+                                        )}
+                                        <span className="truncate group-hover:text-white">{item.name}</span>
+                                    </td>
+                                    <td className="py-2.5 text-right text-muted">{item.size > 0 ? formatSize(item.size) : '—'}</td>
+                                    <td className="py-2.5 pl-10 text-muted">{formatDate(item.mtime)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+
+            <EditorModal
+                isOpen={!!selectedFile}
+                onClose={() => setSelectedFile(null)}
+                filename={selectedFile?.name || ''}
+                content={selectedFile?.content || ''}
+                onSave={handleSaveFile}
+            />
         </div>
     );
 }
@@ -345,6 +809,19 @@ const ServerDetail: React.FC = () => {
                             content: <NeofetchInfo server={server} connected={connected} systemInfo={systemInfo} />
                         },
                         {
+                            id: 'dir',
+                            label: 'Directories',
+                            icon: (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M18 10L13 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                    <path d="M22 11.7979C22 9.16554 22 7.84935 21.2305 6.99383C21.1598 6.91514 21.0849 6.84024 21.0062 6.76946C20.1506 6 18.8345 6 16.2021 6H15.8284C14.6747 6 14.0979 6 13.5604 5.84678C13.2651 5.7626 12.9804 5.64471 12.7121 5.49543C12.2237 5.22367 11.8158 4.81578 11 4L10.4497 3.44975C10.1763 3.17633 10.0396 3.03961 9.89594 2.92051C9.27652 2.40704 8.51665 2.09229 7.71557 2.01738C7.52976 2 7.33642 2 6.94975 2C6.06722 2 5.62595 2 5.25839 2.06935C3.64031 2.37464 2.37464 3.64031 2.06935 5.25839C2 5.62595 2 6.06722 2 6.94975M21.9913 16C21.9554 18.4796 21.7715 19.8853 20.8284 20.8284C19.6569 22 17.7712 22 14 22H10C6.22876 22 4.34315 22 3.17157 20.8284C2 19.6569 2 17.7712 2 14V11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                </svg>
+                            ),
+                            content: (
+                                <Directions server={server} connected={connected} triggerAlert={triggerAlert} />
+                            )
+                        },
+                        {
                             id: 'scripts',
                             label: 'Scripts',
                             icon: (
@@ -361,6 +838,16 @@ const ServerDetail: React.FC = () => {
                             )
                         },
                         {
+                            id: 'commands',
+                            label: 'Commands',
+                            icon: (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" />
+                                </svg>
+                            ),
+                            content: <Commands />
+                        },
+                        {
                             id: 'config',
                             label: 'Config',
                             icon: (
@@ -368,9 +855,47 @@ const ServerDetail: React.FC = () => {
                                     <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.72V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.17a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" />
                                 </svg>
                             ),
-                            content: (
-                                <Configs server={server} />
-                            )
+                            content: <Configs server={server} triggerAlert={triggerAlert} />
+                        },
+                        {
+                            id: 'health',
+                            label: 'Health',
+                            icon: (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                                </svg>
+                            ),
+                            content: <Health />
+                        },
+                        {
+                            id: 'apps',
+                            label: 'Apps',
+                            icon: (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+                                </svg>
+                            ),
+                            content: <Apps />
+                        },
+                        {
+                            id: 'graphics',
+                            label: 'Stats',
+                            icon: (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" />
+                                </svg>
+                            ),
+                            content: <Graphics />
+                        },
+                        {
+                            id: 'settings',
+                            label: 'Settings',
+                            icon: (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                                </svg>
+                            ),
+                            content: <Settings />
                         }
                     ]}
                 />

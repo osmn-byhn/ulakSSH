@@ -161,6 +161,46 @@ const createWindow = () => {
     }
   });
 
+  ipcMain.handle('list-directory', async (event, id, path) => {
+    try {
+      const conn = activeSessions.get(id);
+      if (!conn) throw new Error('No active session for this server');
+
+      const { listDirectory } = await import('../src/main/ssh/ls.js');
+      return await listDirectory(conn, path);
+    } catch (error: any) {
+      console.error('Failed to list directory:', error);
+      return { error: error.message };
+    }
+  });
+
+  ipcMain.handle('read-remote-file', async (event, id, path) => {
+    try {
+      const conn = activeSessions.get(id);
+      if (!conn) throw new Error('No active session for this server');
+
+      const { readRemoteFile } = await import('../src/main/ssh/sftp.js');
+      return await readRemoteFile(conn, path);
+    } catch (error: any) {
+      console.error('Failed to read remote file:', error);
+      return { error: error.message };
+    }
+  });
+
+  ipcMain.handle('write-remote-file', async (event, id, path, content) => {
+    try {
+      const conn = activeSessions.get(id);
+      if (!conn) throw new Error('No active session for this server');
+
+      const { writeRemoteFile } = await import('../src/main/ssh/sftp.js');
+      await writeRemoteFile(conn, path, content);
+      return { success: true };
+    } catch (error: any) {
+      console.error('Failed to write remote file:', error);
+      return { error: error.message };
+    }
+  });
+
   // ─── Embedded Terminal Tabs (ssh2 shell stream, no password prompt) ─────────
 
   // Spawn a new terminal tab: opens a fresh ssh2 connection + shell stream.

@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld("api", {
   sendTerminalData: (id: string, data: string) => ipcRenderer.send('terminal-input', id, data),
   resizeTerminal: (id: string, cols: number, rows: number) => ipcRenderer.send('terminal-resize', id, cols, rows),
   getSystemInfo: (id: string) => ipcRenderer.invoke('get-system-info', id),
+  pickFile: () => ipcRenderer.invoke('pick-file'),
+  readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
 
   // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
   tabSpawn: (serverId: string, tabId: string, cols: number, rows: number) =>

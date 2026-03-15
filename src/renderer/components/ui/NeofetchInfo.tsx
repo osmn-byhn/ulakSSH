@@ -17,71 +17,156 @@ interface NeofetchInfoProps {
     };
 }
 
+const details = (server: Server, systemInfo: NeofetchInfoProps['systemInfo']) => [
+    { label: 'OS', value: systemInfo?.os || server.os || 'Linux', color: '#06b6d4' },
+    { label: 'Host', value: server.host, color: '#7c3aed' },
+    { label: 'Kernel', value: systemInfo?.kernel || '—', color: '#3b82f6' },
+    { label: 'Uptime', value: systemInfo?.uptime || '—', color: '#10b981' },
+    { label: 'Shell', value: systemInfo?.shell || 'bash', color: '#f59e0b' },
+    { label: 'CPU', value: systemInfo?.cpu || '—', color: '#f43f5e' },
+    { label: 'Memory', value: systemInfo?.memory || '—', color: '#a855f7' },
+];
+
 const NeofetchInfo: React.FC<NeofetchInfoProps> = ({ server, connected, systemInfo }) => {
     const navigate = useNavigate();
-    const details = [
-        { label: 'OS', value: systemInfo?.os || server.os || 'Linux', color: 'text-indigo-400' },
-        { label: 'Host', value: server.host, color: 'text-purple-400' },
-        { label: 'Kernel', value: systemInfo?.kernel || 'Unknown', color: 'text-blue-400' },
-        { label: 'Uptime', value: systemInfo?.uptime || 'Unknown', color: 'text-green-400' },
-        { label: 'Shell', value: systemInfo?.shell || 'bash', color: 'text-yellow-400' },
-        { label: 'CPU', value: systemInfo?.cpu || 'Unknown', color: 'text-red-400' },
-        { label: 'Memory', value: systemInfo?.memory || 'Unknown', color: 'text-pink-400' },
-    ];
+    const rows = details(server, systemInfo);
 
     return (
-        <div className="flex  w-full md:flex-row items-center md:items-start gap-8 bg-gray-900/60 p-8 rounded-3xl border border-gray-800/50 backdrop-blur-xl shadow-2xl relative overflow-hidden group">
-            {/* Background Glow */}
-            <div className="absolute -top-24 -left-24 w-64 h-64 bg-indigo-600/10 blur-[100px] rounded-full group-hover:bg-indigo-600/20 transition-all duration-700"></div>
-            <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-purple-600/10 blur-[100px] rounded-full group-hover:bg-purple-600/20 transition-all duration-700"></div>
+        <div
+            className="scanlines relative rounded-2xl overflow-hidden animate-fade-in"
+            style={{
+                background: 'rgba(8, 11, 22, 0.9)',
+                border: '1px solid rgba(6,182,212,0.15)',
+                boxShadow: '0 0 60px rgba(6,182,212,0.06), inset 0 1px 0 rgba(255,255,255,0.04)',
+            }}
+        >
+            {/* Ambient glow blobs */}
+            <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full pointer-events-none"
+                style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%)' }} />
+            <div className="absolute -bottom-16 -right-16 w-48 h-48 rounded-full pointer-events-none"
+                style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.1) 0%, transparent 70%)' }} />
 
-            {/* OS Icon Section */}
-            <div className="flex-shrink-0 relative">
-                <div className="absolute inset-0 bg-white/5 rounded-2xl blur-2xl transform scale-110"></div>
-                <div className="relative hidden lg:block bg-gray-950/50 p-6 rounded-2xl border border-white/5 backdrop-blur-sm shadow-inner group-hover:border-indigo-500/30 transition-all duration-500">
-                    <OsIcon os={server.os} className="w-32 h-32 md:w-40 md:h-40 filter drop-shadow-[0_0_15px_rgba(99,102,241,0.3)] group-hover:scale-105 transition-transform duration-500" />
+            <div className="relative z-10 p-7 flex flex-col md:flex-row gap-8 items-center md:items-start">
+
+                {/* ── Left: OS Icon ─────────────────────────────────────────────── */}
+                <div className="hidden lg:flex flex-col items-center gap-4 shrink-0">
+                    <div
+                        className="p-5 rounded-2xl animate-flicker"
+                        style={{
+                            background: 'rgba(6,182,212,0.06)',
+                            border: '1px solid rgba(6,182,212,0.12)',
+                        }}
+                    >
+                        <OsIcon
+                            os={server.os}
+                            className="w-28 h-28"
+                            style={{ filter: 'drop-shadow(0 0 16px rgba(6,182,212,0.3))' } as any}
+                        />
+                    </div>
+                    {/* OS name in ASCII style */}
+                    <span
+                        className="text-xs font-mono font-bold uppercase tracking-[0.2em]"
+                        style={{ color: 'rgba(6,182,212,0.5)' }}
+                    >
+                        {server.os || 'linux'}
+                    </span>
                 </div>
-            </div>
 
-            {/* Info Section */}
-            <div className="flex-1 font-mono space-y-3 relative z-10 w-full">
-                <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h2 className="text-2xl font-bold flex items-center gap-2">
-                            <span className="text-indigo-400">{server.username}</span>
-                            <span className="text-gray-500">@</span>
-                            <span className="text-purple-400">{server.name}</span>
-                        </h2>
-                        <div className="h-0.5 w-32 bg-gradient-to-r from-indigo-500/50 via-purple-500/50 to-transparent mt-1.5 opacity-40"></div>
+                {/* ── Right: Info ────────────────────────────────────────────────── */}
+                <div className="flex-1 w-full font-mono">
+                    {/* username@hostname */}
+                    <div className="mb-5 flex flex-col md:flex-row md:items-start justify-between gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold leading-none">
+                                <span style={{ color: '#06b6d4', textShadow: '0 0 20px rgba(6,182,212,0.4)' }}>
+                                    {server.username}
+                                </span>
+                                <span style={{ color: 'rgba(255,255,255,0.2)' }}>@</span>
+                                <span style={{ color: '#a78bfa', textShadow: '0 0 20px rgba(167,139,250,0.4)' }}>
+                                    {server.name}
+                                </span>
+                            </h2>
+                            <div
+                                className="h-px w-36 mt-2 rounded-full"
+                                style={{ background: 'linear-gradient(90deg, rgba(6,182,212,0.4), rgba(124,58,237,0.4), transparent)' }}
+                            />
+                        </div>
+
+                        {connected && (
+                            <button
+                                onClick={() => navigate(`/terminal/${server.id}`)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-200 active:scale-95 shrink-0"
+                                style={{
+                                    background: 'rgba(16,185,129,0.12)',
+                                    color: '#10b981',
+                                    border: '1px solid rgba(16,185,129,0.25)',
+                                    boxShadow: '0 0 20px rgba(16,185,129,0.15)',
+                                }}
+                            >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+                                </svg>
+                                Open Terminal
+                            </button>
+                        )}
                     </div>
 
-                    {connected && (
-                        <button
-                            onClick={() => navigate(`/terminal/${server.id}`)}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
-                        >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-                            Open Terminal
-                        </button>
-                    )}
-                </div>
+                    {/* ── Key-value grid ────────────────────────────────────────── */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-2">
+                        {rows.map((item, i) => (
+                            <div key={i} className="flex items-center gap-3">
+                                <span
+                                    className="w-16 text-[11px] font-bold uppercase tracking-[0.15em] shrink-0"
+                                    style={{ color: item.color }}
+                                >
+                                    {item.label}
+                                </span>
+                                <span
+                                    className="text-sm"
+                                    style={{
+                                        color: item.value === '—' ? 'rgba(255,255,255,0.2)' : 'rgba(226,232,255,0.8)'
+                                    }}
+                                >
+                                    {item.value}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5">
-                    {details.map((item, index) => (
-                        <div key={index} className="flex items-center gap-3 group/item">
-                            <span className={`w-20 font-bold uppercase text-[11px] tracking-widest ${item.color} opacity-70 group-hover/item:opacity-100 transition-opacity`}>
-                                {item.label}
+                    {/* ── Status bar ──────────────────────────────────────────────── */}
+                    <div
+                        className="flex items-center justify-between mt-6 pt-4"
+                        style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                    >
+                        <span className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.15)' }}>
+                            port:{server.port} · auth:{server.authType}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            {connected && (
+                                <span
+                                    className="w-1.5 h-1.5 rounded-full"
+                                    style={{
+                                        background: '#10b981',
+                                        boxShadow: '0 0 6px rgba(16,185,129,0.8)',
+                                        animation: 'pulse-ring 2s ease-out infinite',
+                                    }}
+                                />
+                            )}
+                            <span
+                                className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
+                                style={connected ? {
+                                    background: 'rgba(16,185,129,0.1)',
+                                    color: '#10b981',
+                                    border: '1px solid rgba(16,185,129,0.2)',
+                                } : {
+                                    background: 'rgba(244,63,94,0.1)',
+                                    color: '#f43f5e',
+                                    border: '1px solid rgba(244,63,94,0.2)',
+                                }}
+                            >
+                                {connected ? 'tunnel active' : 'offline'}
                             </span>
-                            <span className="text-gray-300 text-sm truncate">{item.value}</span>
                         </div>
-                    ))}
-                </div>
-
-                {/* Status Indicator */}
-                <div className="mt-6 flex items-center gap-4 pt-4 border-t border-gray-800/50">
-
-                    <div className={`ml-auto px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter border ${connected ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                        {connected ? 'Active Tunnel' : 'Tunnel Closed'}
                     </div>
                 </div>
             </div>

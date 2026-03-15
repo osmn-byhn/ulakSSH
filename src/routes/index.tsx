@@ -7,9 +7,9 @@ import Titlebar from "../renderer/components/layouts/Titlebar";
 
 const Layout = () => {
     return (
-        <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-900 text-white">
+        <div className="flex flex-col h-screen w-screen overflow-hidden" style={{ background: 'var(--bg-base)' }}>
             <Titlebar />
-            <div className="flex-1 mt-10 overflow-y-auto bg-gray-950">
+            <div className="flex-1 mt-10 overflow-y-auto" style={{ background: 'var(--bg-base)' }}>
                 <Outlet />
             </div>
         </div>

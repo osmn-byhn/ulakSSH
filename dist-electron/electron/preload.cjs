@@ -22,6 +22,8 @@ electron_1.contextBridge.exposeInMainWorld("api", {
     sendTerminalData: (id, data) => electron_1.ipcRenderer.send('terminal-input', id, data),
     resizeTerminal: (id, cols, rows) => electron_1.ipcRenderer.send('terminal-resize', id, cols, rows),
     getSystemInfo: (id) => electron_1.ipcRenderer.invoke('get-system-info', id),
+    pickFile: () => electron_1.ipcRenderer.invoke('pick-file'),
+    readFile: (filePath) => electron_1.ipcRenderer.invoke('read-file', filePath),
     // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
     tabSpawn: (serverId, tabId, cols, rows) => electron_1.ipcRenderer.invoke('tab-spawn', serverId, tabId, cols, rows),
     tabInput: (tabId, data) => electron_1.ipcRenderer.send('tab-input', tabId, data),

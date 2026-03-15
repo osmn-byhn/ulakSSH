@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
+import { CanvasAddon } from '@xterm/addon-canvas';
 import '@xterm/xterm/css/xterm.css';
 
 const api = (window as any).api;
@@ -41,13 +43,14 @@ const TerminalWindow: React.FC = () => {
 
         // Create a dedicated container div for this tab
         const containerEl = document.createElement('div');
-        containerEl.style.cssText = 'width:100%;height:100%;display:none;';
+        containerEl.style.cssText = 'width:100%;height:100%;visibility:hidden;position:absolute;top:0;left:0;';
         terminalContainerRef.current.appendChild(containerEl);
 
         const term = new Terminal({
             cursorBlink: true,
             fontSize: 14,
             fontFamily: 'JetBrains Mono, Menlo, Monaco, "Courier New", monospace',
+            allowProposedApi: true,
             theme: {
                 background: '#0d0d14',
                 foreground: '#e2e8f0',
@@ -76,7 +79,32 @@ const TerminalWindow: React.FC = () => {
         const fitAddon = new FitAddon();
         term.loadAddon(fitAddon);
         term.open(containerEl);
+
+        // Ensure the terminal is focused when clicking on its container
+        containerEl.addEventListener('mousedown', () => {
+            setTimeout(() => term.focus(), 1);
+        });
+
         fitAddon.fit();
+
+        // ── Performance Addons (WebGL / Canvas fallback) ──────────────────────
+        try {
+            const webglAddon = new WebglAddon();
+            webglAddon.onContextLoss(() => {
+                webglAddon.dispose();
+            });
+            term.loadAddon(webglAddon);
+            console.log(`[Terminal ${tabId}] WebGL renderer enabled`);
+        } catch (e) {
+            console.warn(`[Terminal ${tabId}] WebGL addon failed to load, falling back to Canvas:`, e);
+            try {
+                const canvasAddon = new CanvasAddon();
+                term.loadAddon(canvasAddon);
+                console.log(`[Terminal ${tabId}] Canvas renderer enabled`);
+            } catch (e2) {
+                console.warn(`[Terminal ${tabId}] Canvas addon failed to load, using default DOM renderer:`, e2);
+            }
+        }
 
         const instance: TabInstance = { id: tabId, label, term, fitAddon, containerEl, status: 'connecting', cleanupFns: [] };
 
@@ -148,14 +176,28 @@ const TerminalWindow: React.FC = () => {
     // ── Update DOM visibility when activeTabId changes ────────────────────────
     useEffect(() => {
         tabs.forEach(t => {
-            t.containerEl.style.display = t.id === activeTabId ? 'block' : 'none';
+            const isActive = t.id === activeTabId;
+            t.containerEl.style.visibility = isActive ? 'visible' : 'hidden';
+            t.containerEl.style.opacity = isActive ? '1' : '0';
+            t.containerEl.style.pointerEvents = isActive ? 'auto' : 'none';
+            t.containerEl.style.position = isActive ? 'relative' : 'absolute';
+
+            if (isActive) {
+                t.term.focus();
+                // Force a refresh to fix rendering glitches (disappearing characters)
+                t.term.refresh(0, t.term.rows - 1);
+            }
         });
         // Fit active tab after show
         const active = tabs.find(t => t.id === activeTabId);
         if (active) {
             setTimeout(() => {
-                try { active.fitAddon.fit(); } catch (_) { }
-            }, 50);
+                try {
+                    active.fitAddon.fit();
+                    active.term.refresh(0, active.term.rows - 1);
+                    active.term.focus();
+                } catch (_) { }
+            }, 100);
         }
     }, [activeTabId, tabs]);
 

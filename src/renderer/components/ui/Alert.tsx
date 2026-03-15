@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 export type AlertType = 'success' | 'error' | 'info';
 
@@ -6,38 +6,94 @@ interface AlertProps {
     message: string;
     type?: AlertType;
     onClose: () => void;
-    duration?: number; // in milliseconds
+    duration?: number;
 }
 
+const config = {
+    success: {
+        color: '#10b981',
+        bg: 'rgba(16,185,129,0.08)',
+        border: 'rgba(16,185,129,0.25)',
+        icon: (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+        ),
+    },
+    error: {
+        color: '#f43f5e',
+        bg: 'rgba(244,63,94,0.08)',
+        border: 'rgba(244,63,94,0.25)',
+        icon: (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+        ),
+    },
+    info: {
+        color: '#06b6d4',
+        bg: 'rgba(6,182,212,0.08)',
+        border: 'rgba(6,182,212,0.25)',
+        icon: (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+        ),
+    },
+};
+
 const Alert: React.FC<AlertProps> = ({ message, type = 'info', onClose, duration = 5000 }) => {
+    const progressRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         if (duration > 0) {
-            const timer = setTimeout(() => {
-                onClose();
-            }, duration);
+            const timer = setTimeout(onClose, duration);
+            // Animate progress bar
+            if (progressRef.current) {
+                progressRef.current.style.transition = `width ${duration}ms linear`;
+                progressRef.current.style.width = '0%';
+            }
             return () => clearTimeout(timer);
         }
     }, [duration, onClose]);
 
-    const bgColors = {
-        success: 'bg-green-500/10 border-green-500/50 text-green-400',
-        error: 'bg-red-500/10 border-red-500/50 text-red-400',
-        info: 'bg-indigo-500/10 border-indigo-500/50 text-indigo-400'
-    };
+    const { color, bg, border, icon } = config[type];
 
     return (
-        <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-xl border font-medium ${bgColors[type]} animate-in fade-in slide-in-from-bottom-8 duration-300 z-50 flex items-center gap-3 min-w-[320px] max-w-md justify-between`}>
-            <div className="flex items-center gap-3">
-                <div className={`p-1.5 rounded-full ${type === 'success' ? 'bg-green-500/20' : type === 'error' ? 'bg-red-500/20' : 'bg-indigo-500/20'}`}>
-                    {type === 'success' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>}
-                    {type === 'error' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>}
-                    {type === 'info' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>}
-                </div>
-                <span className="text-sm font-semibold tracking-wide">{message}</span>
+        <div
+            className="fixed bottom-5 right-5 z-[200] animate-toast-in overflow-hidden rounded-xl shadow-2xl min-w-[280px] max-w-sm"
+            style={{
+                background: 'rgba(10,13,26,0.95)',
+                border: `1px solid ${border}`,
+                backdropFilter: 'blur(20px)',
+                boxShadow: `0 0 30px ${bg}, 0 16px 40px rgba(0,0,0,0.4)`,
+                borderLeft: `3px solid ${color}`,
+            }}
+        >
+            <div className="flex items-center gap-3 px-4 py-3.5">
+                <span style={{ color }}>{icon}</span>
+                <span className="text-sm font-medium flex-1 leading-tight" style={{ color: 'var(--text-primary)' }}>
+                    {message}
+                </span>
+                <button
+                    onClick={onClose}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/10 transition-all shrink-0"
+                    style={{ color: 'var(--text-muted)' }}
+                >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
             </div>
-            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10 opacity-70 hover:opacity-100 transition-all">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
+
+            {/* Progress bar */}
+            <div className="h-0.5 w-full" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <div
+                    ref={progressRef}
+                    className="h-full"
+                    style={{ width: '100%', background: color, borderRadius: '0 0 0 4px' }}
+                />
+            </div>
         </div>
     );
 };

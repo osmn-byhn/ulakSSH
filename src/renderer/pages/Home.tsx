@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../components/ui/Modal";
 import OsIcon from "../components/ui/OsIcon";
-import type { Server, OsType } from "../../shared/server";
+import type { Server } from "../../shared/server";
 
 const Home: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -18,7 +18,7 @@ const Home: React.FC = () => {
     const [privateKey, setPrivateKey] = useState('');
     const [privateKeyPath, setPrivateKeyPath] = useState('');
     const [passphrase, setPassphrase] = useState('');
-    const [os, setOs] = useState<OsType>('linux');
+    const [isDragging, setIsDragging] = useState(false);
 
     const navigate = useNavigate();
     const api = (window as any).api;
@@ -26,127 +26,253 @@ const Home: React.FC = () => {
     const loadServers = async () => {
         if (api?.getServers) {
             const data: Server[] = await api.getServers();
-            // Get last 5 servers added (assuming append-only, reverse and take 5)
-            setServers(data.reverse().slice(0, 5));
+            setServers(data.reverse().slice(0, 12));
         }
     };
 
-    useEffect(() => {
-        loadServers();
-    }, []);
+    useEffect(() => { loadServers(); }, []);
 
     const resetForm = () => {
-        setName('');
-        setHost('');
-        setPort(22);
-        setUsername('root');
-        setAuthType('password');
-        setPassword('');
-        setPrivateKey('');
-        setPrivateKeyPath('');
-        setPassphrase('');
-        setOs('linux');
+        setName(''); setHost(''); setPort(22); setUsername('root');
+        setAuthType('password'); setPassword(''); setPrivateKey('');
+        setPrivateKeyPath(''); setPassphrase('');
     };
 
-    const handleOpenModal = () => {
-        resetForm();
-        setIsModalOpen(true);
-    };
+    const handleOpenModal = () => { resetForm(); setIsModalOpen(true); };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
         const newServer: Server = {
-            id: '',
-            name: name || host, // fallback to host if name is empty
-            host,
-            port,
-            username,
-            authType,
+            id: '', name: name || host, host, port, username, authType,
             password: authType === 'password' ? password : undefined,
             privateKey: authType === 'key' ? privateKey : undefined,
             privateKeyPath: authType === 'key' ? privateKeyPath : undefined,
             passphrase: authType === 'key' && passphrase ? passphrase : undefined,
-            os,
+            os: 'linux',
         };
-
         if (api?.addServer) {
             const success = await api.addServer(newServer);
-            if (success) {
-                setIsModalOpen(false);
-                loadServers();
-            } else {
-                alert("Failed to add Server.");
-            }
+            if (success) { setIsModalOpen(false); loadServers(); }
+            else alert("Failed to add Server.");
         }
     };
 
+    const handleFilePick = async () => {
+        if (!api?.pickFile) return;
+        const filePath = await api.pickFile();
+        if (filePath) {
+            setPrivateKeyPath(filePath);
+            const content = await api.readFile(filePath);
+            if (content) setPrivateKey(content);
+        }
+    };
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            setPrivateKeyPath((file as any).path || file.name);
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const content = event.target?.result as string;
+                setPrivateKey(content);
+            };
+            reader.readAsText(file);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragging(false);
+    };
+
+    const inputCls = "w-full px-3 py-2 rounded-lg text-sm font-mono placeholder-gray-700 transition-all";
+    const labelCls = "block text-[10px] font-semibold uppercase tracking-widest mb-1.5" as const;
+
     return (
-        <div className="p-8 max-w-5xl mx-auto">
-            <div className="flex justify-between items-center mb-10">
-                <div>
-                    <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-500">Welcome to UlakSSH</h1>
-                    <p className="text-gray-400 mt-2">Manage and connect to your servers effortlessly.</p>
-                </div>
-                <button
-                    onClick={handleOpenModal}
-                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-lg hover:shadow-indigo-500/25 active:scale-95"
-                >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    Add SSH
-                </button>
-            </div>
+        <div className="dot-grid-bg min-h-full relative">
+            <div className="relative z-10 max-w-5xl mx-auto px-6 py-8 animate-fade-in">
 
-            <div>
-                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-gray-200">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    Recent Connections
-                </h2>
-
-                {servers.length === 0 ? (
-                    <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-10 text-center flex flex-col items-center justify-center">
-                        <div className="bg-gray-800 rounded-full p-4 mb-4">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                {/* ── Header ──────────────────────────────────────────────────── */}
+                <div className="flex justify-between items-start mb-10">
+                    <div>
+                        <div className="flex items-center gap-3 mb-1">
+                            {/* Blinking cursor */}
+                            <span
+                                className="font-mono text-xs text-cyan-500 opacity-60"
+                                style={{ fontFamily: 'JetBrains Mono, monospace' }}
+                            >
+                                ~/connections
+                            </span>
+                            <span
+                                className="w-2 h-4 inline-block bg-cyan-400"
+                                style={{ animation: 'blink-cursor 1s step-end infinite' }}
+                            />
                         </div>
-                        <h3 className="text-lg font-medium text-gray-300">No servers found</h3>
-                        <p className="text-gray-500 mt-2 max-w-sm">You haven't added any SSH connections yet. Click the Add SSH button to get started.</p>
+                        <h1
+                            className="text-4xl font-bold tracking-tight gradient-text"
+                            style={{ fontFamily: 'JetBrains Mono, monospace' }}
+                        >
+                            UlakSSH
+                        </h1>
+                        <p className="text-sm mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+                            SSH connection manager — fast, secure, minimal
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={handleOpenModal}
+                        className="group flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white transition-all duration-200 active:scale-95"
+                        style={{
+                            background: 'linear-gradient(135deg, #06b6d4 0%, #7c3aed 100%)',
+                            boxShadow: '0 4px 24px rgba(6,182,212,0.25)',
+                        }}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        New Connection
+                    </button>
+                </div>
+
+                {/* ── Section header ───────────────────────────────────────────── */}
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="h-px flex-1" style={{ background: 'var(--border-subtle)' }} />
+                    <span className="text-xs font-mono uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                        Saved Servers
+                    </span>
+                    <div className="h-px flex-1" style={{ background: 'var(--border-subtle)' }} />
+                </div>
+
+                {/* ── Server grid / empty state ────────────────────────────────── */}
+                {servers.length === 0 ? (
+                    <div className="glass rounded-2xl p-14 text-center flex flex-col items-center justify-center animate-fade-in">
+                        {/* ASCII-art style icon */}
+                        <pre
+                            className="text-xs leading-tight mb-6 select-none"
+                            style={{
+                                color: 'rgba(6,182,212,0.3)',
+                                fontFamily: 'JetBrains Mono, monospace',
+                            }}
+                        >{`  ┌─────────┐
+  │ SSH     │
+  │  ·  ·  │
+  └────┬────┘
+       │
+  ─────┴─────`}</pre>
+                        <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                            No connections yet
+                        </h3>
+                        <p className="text-sm max-w-xs" style={{ color: 'var(--text-secondary)' }}>
+                            Add your first SSH server to get started. Click <strong className="text-cyan-400">New Connection</strong> above.
+                        </p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {servers.map((server, idx) => (
-                            <div key={server.id || idx} className="bg-gray-900 border border-gray-800 hover:border-indigo-500/50 rounded-xl p-5 hover:bg-gray-800/80 transition-all group cursor-pointer shadow-sm hover:shadow-indigo-900/20">
-                                <div className="flex justify-between items-start mb-3">
-                                    <div className="flex items-center gap-3 truncate">
-                                        <OsIcon os={server.os} className="w-8 h-8 flex-shrink-0" />
-                                        <h3 className="font-semibold text-lg text-gray-100 truncate">{server.name}</h3>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <span className="bg-green-500/10 text-green-400 text-xs px-2 py-1 rounded-md font-medium">Ready</span>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigate(`/server/${server.id}`);
-                                            }}
-                                            className="text-gray-400 hover:text-indigo-400 bg-gray-800 hover:bg-gray-700 p-1.5 rounded-lg transition-all shadow-sm"
-                                            title="Connect to Server"
+                            <div
+                                key={server.id || idx}
+                                className="glass rounded-2xl p-5 group cursor-pointer transition-all duration-200 hover:border-cyan-500/20 relative overflow-hidden animate-slide-up"
+                                style={{
+                                    animationDelay: `${idx * 40}ms`,
+                                    borderColor: 'rgba(255,255,255,0.06)',
+                                }}
+                                onClick={() => navigate(`/server/${server.id}`)}
+                            >
+                                {/* Hover glow blob */}
+                                <div
+                                    className="absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                                    style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.12) 0%, transparent 70%)' }}
+                                />
+
+                                {/* Card header */}
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div
+                                            className="p-2 rounded-xl"
+                                            style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)' }}
                                         >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-                                        </button>
+                                            <OsIcon os={server.os} className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>
+                                                {server.name}
+                                            </h3>
+                                            <span
+                                                className="text-[10px] font-mono"
+                                                style={{ color: 'var(--text-muted)' }}
+                                            >
+                                                {server.os || 'linux'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {/* Ready badge */}
+                                    <span
+                                        className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                                        style={{
+                                            background: 'rgba(16,185,129,0.1)',
+                                            color: '#10b981',
+                                            border: '1px solid rgba(16,185,129,0.2)',
+                                        }}
+                                    >
+                                        ready
+                                    </span>
+                                </div>
+
+                                {/* Details */}
+                                <div className="space-y-1.5 mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0" style={{ color: 'var(--text-muted)' }}>
+                                            <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                                        </svg>
+                                        <span className="text-xs font-mono truncate" style={{ color: 'var(--text-secondary)' }}>
+                                            {server.host}:{server.port}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0" style={{ color: 'var(--text-muted)' }}>
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                                        </svg>
+                                        <span className="text-xs font-mono truncate" style={{ color: 'var(--text-secondary)' }}>
+                                            {server.username}
+                                        </span>
                                     </div>
                                 </div>
-                                <div className="text-sm text-gray-400 space-y-1">
-                                    <div className="flex items-center gap-2 truncate">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                                        {server.host}:{server.port}
-                                    </div>
-                                    <div className="flex items-center gap-2 truncate">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                        {server.username}
-                                    </div>
-                                    <div className="flex items-center gap-2 truncate mt-3 pt-3 border-t border-gray-800/60">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={server.authType === 'key' ? "text-amber-400" : "text-blue-400"}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                                        <span className="capitalize text-xs font-medium">{server.authType} Auth</span>
-                                    </div>
+
+                                {/* Footer */}
+                                <div
+                                    className="flex items-center justify-between pt-3"
+                                    style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                                >
+                                    <span
+                                        className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider"
+                                        style={{ color: server.authType === 'key' ? '#f59e0b' : '#06b6d4' }}
+                                    >
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                        </svg>
+                                        {server.authType}
+                                    </span>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); navigate(`/server/${server.id}`); }}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 opacity-0 group-hover:opacity-100"
+                                        style={{
+                                            background: 'rgba(6,182,212,0.12)',
+                                            color: '#06b6d4',
+                                            border: '1px solid rgba(6,182,212,0.2)',
+                                        }}
+                                    >
+                                        Connect
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -154,163 +280,131 @@ const Home: React.FC = () => {
                 )}
             </div>
 
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add SSH Server">
-                <form onSubmit={handleSubmit} className="space-y-4">
+            {/* ── Add SSH Modal ────────────────────────────────────────────────── */}
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New SSH Connection">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Name (Alias)</label>
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-gray-700"
-                                placeholder="e.g. Production Web"
-                            />
+                        <div>
+                            <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Alias / Name</label>
+                            <input type="text" value={name} onChange={e => setName(e.target.value)}
+                                className={inputCls} placeholder="e.g. prod-web" />
                         </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Username *</label>
-                            <input
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-                                required
-                            />
+                        <div>
+                            <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Username *</label>
+                            <input type="text" value={username} onChange={e => setUsername(e.target.value)}
+                                className={inputCls} required />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-4">
-                        <div className="col-span-3 space-y-1">
-                            <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Host (IP or Domain) *</label>
-                            <input
-                                type="text"
-                                value={host}
-                                onChange={(e) => setHost(e.target.value)}
-                                className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-gray-700 font-mono"
-                                placeholder="192.168.1.1"
-                                required
-                            />
+                    <div className="grid grid-cols-4 gap-3">
+                        <div className="col-span-3">
+                            <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Host *</label>
+                            <input type="text" value={host} onChange={e => setHost(e.target.value)}
+                                className={inputCls} placeholder="192.168.1.1" required />
                         </div>
-                        <div className="col-span-1 space-y-1">
-                            <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Port *</label>
-                            <input
-                                type="number"
-                                value={port}
-                                onChange={(e) => setPort(parseInt(e.target.value) || 22)}
-                                className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono"
-                                required
-                                min="1"
-                                max="65535"
-                            />
+                        <div>
+                            <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Port</label>
+                            <input type="number" value={port} onChange={e => setPort(parseInt(e.target.value) || 22)}
+                                className={inputCls} min="1" max="65535" required />
                         </div>
                     </div>
 
-                    <div className="flex flex-col space-y-1">
-                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Operating System</label>
-                        <select
-                            value={os}
-                            onChange={(e) => setOs(e.target.value as OsType)}
-                            className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium appearance-none"
+
+
+                    {/* Auth toggle */}
+                    <div>
+                        <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Auth Method</label>
+                        <div
+                            className="flex p-1 rounded-xl gap-1"
+                            style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}
                         >
-                            <option value="linux">Linux (Generic)</option>
-                            <option value="ubuntu">Ubuntu</option>
-                            <option value="debian">Debian</option>
-                            <option value="centos">CentOS / RHEL</option>
-                            <option value="fedora">Fedora</option>
-                            <option value="arch">Arch Linux</option>
-                            <option value="alpine">Alpine Linux</option>
-                            <option value="suse">openSUSE</option>
-                            <option value="macos">macOS</option>
-                            <option value="windows">Windows</option>
-                        </select>
-                    </div>
-
-                    <div className="pt-2 border-t border-gray-800">
-                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 block">Authentication Method</label>
-                        <div className="flex bg-gray-950 rounded-lg border border-gray-800 overflow-hidden mb-4 p-1 space-x-1">
-                            <button
-                                type="button"
-                                onClick={() => setAuthType("password")}
-                                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${authType === 'password' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
-                            >
-                                Password
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setAuthType("key")}
-                                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${authType === 'key' ? 'bg-gray-800 text-indigo-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
-                            >
-                                SSH Key
-                            </button>
+                            {(['password', 'key'] as const).map(t => (
+                                <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => setAuthType(t)}
+                                    className="flex-1 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200"
+                                    style={authType === t ? {
+                                        background: 'rgba(6,182,212,0.15)',
+                                        color: '#06b6d4',
+                                        border: '1px solid rgba(6,182,212,0.25)',
+                                    } : {
+                                        background: 'transparent',
+                                        color: 'var(--text-muted)',
+                                        border: '1px solid transparent',
+                                    }}
+                                >
+                                    {t === 'password' ? '🔑 Password' : '🗝 SSH Key'}
+                                </button>
+                            ))}
                         </div>
-
-                        {authType === 'password' ? (
-                            <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
-                                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Password *</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono"
-                                    required={authType === 'password'}
-                                    placeholder="••••••••"
-                                />
-                            </div>
-                        ) : (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Private Key Path</label>
-                                    <input
-                                        type="text"
-                                        value={privateKeyPath}
-                                        onChange={(e) => setPrivateKeyPath(e.target.value)}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono text-sm placeholder:text-gray-700"
-                                        placeholder="/path/to/id_rsa or .pem"
-                                    />
-                                    <p className="text-[10px] text-gray-500">Provide the absolute path to your key file.</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wider flex justify-between">
-                                        <span>Private Key Content (Optional)</span>
-                                        <span className="text-[10px] lowercase normal-case text-gray-600">If path is not provided</span>
-                                    </label>
-                                    <textarea
-                                        value={privateKey}
-                                        onChange={(e) => setPrivateKey(e.target.value)}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono text-xs placeholder:text-gray-700 h-24 resize-none"
-                                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wider flex justify-between">
-                                        <span>Passphrase (Optional)</span>
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={passphrase}
-                                        onChange={(e) => setPassphrase(e.target.value)}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono"
-                                        placeholder="••••••••"
-                                    />
-                                    <p className="text-[10px] text-gray-500">Only needed if your key is encrypted.</p>
-                                </div>
-                            </div>
-                        )}
                     </div>
 
-                    <div className="pt-6 mt-6 border-t border-gray-800 flex justify-end gap-3">
+                    {authType === 'password' ? (
+                        <div className="animate-slide-up">
+                            <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Password *</label>
+                            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                                className={inputCls} placeholder="••••••••" required />
+                        </div>
+                    ) : (
+                        <div
+                            className={`space-y-4 animate-slide-up p-3 rounded-xl transition-all ${isDragging ? 'bg-cyan-500/10 border-2 border-dashed border-cyan-500/50' : 'border-2 border-transparent'}`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                        >
+                            <div>
+                                <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Private Key File</label>
+                                <div className="flex gap-2">
+                                    <input type="text" value={privateKeyPath} onChange={e => setPrivateKeyPath(e.target.value)}
+                                        className={inputCls} placeholder="~/.ssh/id_rsa or drop file here" />
+                                    <button
+                                        type="button"
+                                        onClick={handleFilePick}
+                                        className="px-3 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 transition-all shrink-0"
+                                    >
+                                        Browse
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className={labelCls} style={{ color: 'var(--text-muted)' }}>
+                                    Private Key Content
+                                    <span className="ml-2 normal-case text-[10px] opacity-50">(auto-filled from file)</span>
+                                </label>
+                                <textarea value={privateKey} onChange={e => setPrivateKey(e.target.value)}
+                                    className={`${inputCls} h-24 resize-none`}
+                                    placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----" />
+                            </div>
+                            <div>
+                                <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Passphrase <span className="opacity-50">(optional)</span></label>
+                                <input type="password" value={passphrase} onChange={e => setPassphrase(e.target.value)}
+                                    className={inputCls} placeholder="••••••••" />
+                            </div>
+                        </div>
+                    )}
+
+                    <div
+                        className="flex justify-end gap-3 pt-4 mt-2"
+                        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+                    >
                         <button
                             type="button"
                             onClick={() => setIsModalOpen(false)}
-                            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800 transition-all"
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/5"
+                            style={{ color: 'var(--text-secondary)' }}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
+                            className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition-all active:scale-95"
+                            style={{
+                                background: 'linear-gradient(135deg, #06b6d4 0%, #7c3aed 100%)',
+                                boxShadow: '0 4px 18px rgba(6,182,212,0.25)',
+                            }}
                         >
-                            Connect & Save
+                            Save & Connect →
                         </button>
                     </div>
                 </form>

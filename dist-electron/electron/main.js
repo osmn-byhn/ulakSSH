@@ -1,4 +1,5 @@
-import { app, BrowserWindow, Menu, ipcMain } from "electron";
+import { app, BrowserWindow, Menu, ipcMain, dialog } from "electron";
+import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -211,6 +212,27 @@ const createWindow = () => {
             }
             catch (_) { }
             activeTabShells.delete(tabId);
+        }
+    });
+    ipcMain.handle('pick-file', async () => {
+        const result = await dialog.showOpenDialog(win, {
+            properties: ['openFile'],
+            filters: [
+                { name: 'SSH Keys', extensions: ['*', 'pem', 'pub', 'key'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
+        if (result.canceled || result.filePaths.length === 0)
+            return null;
+        return result.filePaths[0];
+    });
+    ipcMain.handle('read-file', async (event, filePath) => {
+        try {
+            return fs.readFileSync(filePath, 'utf8');
+        }
+        catch (error) {
+            console.error('Failed to read file:', error);
+            return null;
         }
     });
 };

@@ -1,4 +1,5 @@
-import { app, BrowserWindow, Menu, ipcMain } from "electron";
+import { app, BrowserWindow, Menu, ipcMain, dialog } from "electron";
+import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
@@ -207,7 +208,15 @@ const createWindow = () => {
 
   ipcMain.on('tab-input', (_event, tabId: string, data: string) => {
     const tab = activeTabShells.get(tabId);
-    if (tab) tab.stream.write(data);
+    if (tab) {
+      if (tab.stream.writable) {
+        tab.stream.write(data);
+      } else {
+        console.warn(`[tab-input] Stream for tab ${tabId} is not writable`);
+      }
+    } else {
+      console.warn(`[tab-input] Tab ${tabId} not found`);
+    }
   });
 
   ipcMain.on('tab-resize', (_event, tabId: string, cols: number, rows: number) => {
@@ -221,6 +230,27 @@ const createWindow = () => {
       try { tab.stream.close(); } catch (_) { }
       try { tab.conn.end(); } catch (_) { }
       activeTabShells.delete(tabId);
+    }
+  });
+
+  ipcMain.handle('pick-file', async () => {
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [
+        { name: 'SSH Keys', extensions: ['*', 'pem', 'pub', 'key'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle('read-file', async (event, filePath) => {
+    try {
+      return fs.readFileSync(filePath, 'utf8');
+    } catch (error) {
+      console.error('Failed to read file:', error);
+      return null;
     }
   });
 };

@@ -201,6 +201,19 @@ const createWindow = () => {
     }
   });
 
+  ipcMain.handle('get-server-stats', async (event, id) => {
+    try {
+      const conn = activeSessions.get(id);
+      if (!conn) throw new Error('No active session for this server');
+
+      const { getServerStats } = await import('../src/main/ssh/stats.js');
+      return await getServerStats(conn);
+    } catch (error: any) {
+      console.error('Failed to get server stats:', error);
+      return { error: error.message };
+    }
+  });
+
   // ─── Embedded Terminal Tabs (ssh2 shell stream, no password prompt) ─────────
 
   // Spawn a new terminal tab: opens a fresh ssh2 connection + shell stream.

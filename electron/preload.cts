@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld("api", {
   listDirectory: (serverId: string, path: string) => ipcRenderer.invoke('list-directory', serverId, path),
   readRemoteFile: (serverId: string, filePath: string) => ipcRenderer.invoke('read-remote-file', serverId, filePath),
   writeRemoteFile: (serverId: string, filePath: string, content: string) => ipcRenderer.invoke('write-remote-file', serverId, filePath, content),
+  getServerStats: (serverId: string) => ipcRenderer.invoke('get-server-stats', serverId),
 
   // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
   tabSpawn: (serverId: string, tabId: string, cols: number, rows: number) =>

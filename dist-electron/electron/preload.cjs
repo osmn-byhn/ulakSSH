@@ -28,6 +28,7 @@ electron_1.contextBridge.exposeInMainWorld("api", {
     listDirectory: (serverId, path) => electron_1.ipcRenderer.invoke('list-directory', serverId, path),
     readRemoteFile: (serverId, filePath) => electron_1.ipcRenderer.invoke('read-remote-file', serverId, filePath),
     writeRemoteFile: (serverId, filePath, content) => electron_1.ipcRenderer.invoke('write-remote-file', serverId, filePath, content),
+    getServerStats: (serverId) => electron_1.ipcRenderer.invoke('get-server-stats', serverId),
     // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
     tabSpawn: (serverId, tabId, cols, rows) => electron_1.ipcRenderer.invoke('tab-spawn', serverId, tabId, cols, rows),
     tabInput: (tabId, data) => electron_1.ipcRenderer.send('tab-input', tabId, data),

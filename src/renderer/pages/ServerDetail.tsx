@@ -5,6 +5,8 @@ import NeofetchInfo from "../components/ui/NeofetchInfo";
 import TabSystem from "../components/ui/TabSystem";
 import CodeEditor from "../components/ui/CodeEditor";
 import Editor from "@monaco-editor/react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Cpu, Database, Activity, Layers, Clock, Gauge } from 'lucide-react';
 import type { AlertType } from "../components/ui/Alert";
 import type { Server } from "../../shared/server";
 
@@ -20,6 +22,14 @@ const FileIcon = ({ className }: { className?: string }) => (
         <path d="M13 2V9H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
 );
+
+interface ServerStats {
+    cpu: { usage: number; loadAvg: number[]; cores: number; perCore: number[]; };
+    memory: { total: number; used: number; free: number; percent: number; };
+    processes: Array<{ pid: string; user: string; cpu: number; mem: number; command: string; }>;
+    gpu?: { name: string; usage: number; memoryUsed: number; memoryTotal: number; temp: number; };
+    uptime: string;
+}
 
 const getLanguage = (filename: string) => {
     const ext = filename.split('.').pop()?.toLowerCase();
@@ -563,13 +573,269 @@ const Apps: React.FC = () => {
     );
 }
 
-const Graphics: React.FC = () => {
-    return (
-        <div className="h-full">
+const Graphics: React.FC<{ server: Server | null, connected: boolean }> = ({ server, connected }) => {
+    const [stats, setStats] = useState<ServerStats | null>(null);
+    const [history, setHistory] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const api = (window as any).api;
 
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (connected && server) {
+            fetchStats();
+            interval = setInterval(fetchStats, 1000); // 1-second polling for high granularity
+        }
+        return () => clearInterval(interval);
+    }, [connected, server]);
+
+    const fetchStats = async () => {
+        if (!server) return;
+        try {
+            const result = await api.getServerStats(server.id);
+            if (result && !result.error) {
+                setStats(result);
+                setHistory(prev => {
+                    const newPoint = {
+                        time: new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                        cpu: result.cpu.usage,
+                        mem: result.memory.percent
+                    };
+                    const updated = [...prev, newPoint].slice(-60); // Keep last 60 points (1 minute @ 1s)
+                    return updated;
+                });
+                setLoading(false);
+            }
+        } catch (err) {
+            console.error("Stats poll error:", err);
+        }
+    };
+
+    if (!connected || !server) return (
+        <div className="h-full flex flex-col items-center justify-center opacity-40">
+            <Activity className="w-12 h-12 mb-4" />
+            <p className="text-sm font-mono tracking-widest uppercase">
+                {!connected ? 'Connect to view live session telemetry' : 'Initializing Server Metadata...'}
+            </p>
         </div>
     );
-}
+
+    if (loading && !stats) return (
+        <div className="h-full flex flex-col items-center justify-center">
+            <div className="w-10 h-10 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mb-4" />
+            <p className="text-xs font-mono text-muted animate-pulse">Initializing Data Stream...</p>
+        </div>
+    );
+
+    return (
+        <div className="flex flex-col gap-6 animate-fade-in p-1">
+            {/* Header / Summary Blocks */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="glass p-4 rounded-2xl border border-white/5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-muted">
+                        <Cpu className="w-4 h-4 text-cyan-500" />
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest">CPU Usage</span>
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-white/90">
+                        {stats?.cpu.usage.toFixed(1)}<span className="text-sm text-cyan-500">%</span>
+                    </div>
+                    <div className="text-[10px] text-muted font-mono">{stats?.cpu.cores} Cores Detected</div>
+                </div>
+
+                <div className="glass p-4 rounded-2xl border border-white/5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-muted">
+                        <Database className="w-4 h-4 text-purple-500" />
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest">Memory</span>
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-white/90">
+                        {stats?.memory.percent.toFixed(1)}<span className="text-sm text-purple-500">%</span>
+                    </div>
+                    <div className="text-[10px] text-muted font-mono">
+                        {(stats!.memory.used / 1024 / 1024 / 1024).toFixed(1)}G / {(stats!.memory.total / 1024 / 1024 / 1024).toFixed(1)}G
+                    </div>
+                </div>
+
+                <div className="glass p-4 rounded-2xl border border-white/5 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-muted">
+                        <Clock className="w-4 h-4 text-emerald-500" />
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest">System Uptime</span>
+                    </div>
+                    <div className="text-sm font-bold font-mono text-white/90 pt-1">
+                        {stats?.uptime}
+                    </div>
+                    <div className="text-[10px] text-muted font-mono">Real-time Heartbeat</div>
+                </div>
+
+                {stats?.gpu && (
+                    <div className="glass p-4 rounded-2xl border border-white/5 flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-muted">
+                            <Gauge className="w-4 h-4 text-orange-500" />
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-widest">GPU : {stats.gpu.name}</span>
+                        </div>
+                        <div className="text-2xl font-bold font-mono text-white/90">
+                            {stats.gpu.usage.toFixed(0)}<span className="text-sm text-orange-500">%</span>
+                        </div>
+                        <div className="text-[10px] text-muted font-mono">{stats.gpu.temp}°C Thermal State</div>
+                    </div>
+                )}
+            </div>
+
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[250px]">
+                <div className="glass p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
+                    <div className="absolute top-4 left-6 flex items-center gap-2 z-10">
+                        <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                        <span className="text-[9px] font-bold font-mono text-white/60 tracking-[0.2em] uppercase">Processor Load History</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={history}>
+                            <defs>
+                                <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                            <XAxis dataKey="time" hide />
+                            <YAxis
+                                domain={[0, 100]}
+                                ticks={[0, 25, 50, 75, 100]}
+                                interval={0}
+                                stroke="rgba(255,255,255,0.1)"
+                                tick={{ fontSize: 8, fill: 'rgba(255,255,255,0.3)' }}
+                                width={25}
+                            />
+                            <Tooltip
+                                contentStyle={{ background: '#080b16', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '10px' }}
+                                itemStyle={{ color: '#06b6d4' }}
+                            />
+                            <Area type="monotone" dataKey="cpu" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div className="glass p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
+                    <div className="absolute top-4 left-6 flex items-center gap-2 z-10">
+                        <Layers className="w-3.5 h-3.5 text-purple-400" />
+                        <span className="text-[9px] font-bold font-mono text-white/60 tracking-[0.2em] uppercase">Memory Optimization</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={history}>
+                            <defs>
+                                <linearGradient id="colorMem" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                            <XAxis dataKey="time" hide />
+                            <YAxis
+                                domain={[0, 100]}
+                                ticks={[0, 25, 50, 75, 100]}
+                                stroke="rgba(255,255,255,0.1)"
+                                tick={{ fontSize: 8, fill: 'rgba(255,255,255,0.3)' }}
+                                width={25}
+                            />
+                            <Tooltip
+                                contentStyle={{ background: '#080b16', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '10px' }}
+                                itemStyle={{ color: '#a855f7' }}
+                            />
+                            <Area type="monotone" dataKey="mem" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorMem)" isAnimationActive={false} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Per-Core Section */}
+            <div className="glass p-5 rounded-3xl border border-white/5 flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                    <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-[9px] font-bold font-mono text-white/60 tracking-[0.2em] uppercase">Core Allocation & Cluster Distribution</span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-8 lg:grid-cols-12 xl:grid-cols-16 gap-3">
+                    {stats?.cpu.perCore.map((usage, i) => (
+                        <div key={i} className="flex flex-col gap-1.5 group cursor-help" title={`Core ${i}: ${usage}%`}>
+                            <div className="flex justify-between items-center text-[7px] font-mono text-muted group-hover:text-white/80 transition-colors">
+                                <span>C{i < 10 ? `0${i}` : i}</span>
+                                <span className={usage > 80 ? 'text-rose-400' : usage > 50 ? 'text-amber-400' : 'text-cyan-400'}>{usage}%</span>
+                            </div>
+                            <div className="h-10 w-full bg-white/5 rounded-lg flex flex-col justify-end overflow-hidden border border-white/5 transition-all group-hover:border-white/10">
+                                <div
+                                    className="w-full transition-all duration-700 ease-out"
+                                    style={{
+                                        height: `${usage}%`,
+                                        background: usage > 80
+                                            ? 'linear-gradient(to top, rgba(244,63,94,0.6) 0%, rgba(244,63,94,0.9) 100%)'
+                                            : usage > 50
+                                                ? 'linear-gradient(to top, rgba(245,158,11,0.5) 0%, rgba(245,158,11,0.8) 100%)'
+                                                : 'linear-gradient(to top, rgba(6,182,212,0.4) 0%, rgba(6,182,212,0.7) 100%)',
+                                        boxShadow: usage > 90 ? '0 0 10px rgba(244,63,94,0.3)' : 'none'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                    {(!stats?.cpu.perCore || stats.cpu.perCore.length === 0) && (
+                        <div className="col-span-full py-4 text-center opacity-20 italic text-[9px] font-mono tracking-widest">Awaiting Processor Segmentation Data...</div>
+                    )}
+                </div>
+            </div>
+
+            {/* Processes Table */}
+            <div className="glass overflow-hidden rounded-3xl border border-white/5 flex flex-col">
+                <div className="p-4 px-6 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                            <Activity className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-bold font-mono tracking-widest uppercase">System Processes (Top 10)</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                        <span className="text-[8px] font-mono text-muted uppercase tracking-[0.2em]">Live Stream</span>
+                    </div>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left font-mono text-[10px]">
+                        <thead>
+                            <tr className="text-muted border-b border-white/5">
+                                <th className="p-4 px-6 font-bold uppercase tracking-widest">PID</th>
+                                <th className="p-4 px-6 font-bold uppercase tracking-widest">User</th>
+                                <th className="p-4 px-6 font-bold uppercase tracking-widest text-[#06b6d4]">CPU%</th>
+                                <th className="p-4 px-6 font-bold uppercase tracking-widest text-purple-400">MEM%</th>
+                                <th className="p-4 px-6 font-bold uppercase tracking-widest">Command</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {stats?.processes.map((proc, idx) => (
+                                <tr key={idx} className="border-b border-white/[0.03] hover:bg-white/[0.05] transition-colors group">
+                                    <td className="p-3 px-6 text-white/40">{proc.pid}</td>
+                                    <td className="p-3 px-6 text-muted font-bold">{proc.user}</td>
+                                    <td className="p-3 px-6">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-12 h-1 bg-white/5 rounded-full overflow-hidden">
+                                                <div className="h-full bg-cyan-500 transition-all duration-500" style={{ width: `${Math.min(proc.cpu, 100)}%` }} />
+                                            </div>
+                                            <span className="text-cyan-500/90 font-bold">{proc.cpu.toFixed(1)}%</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-3 px-6">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-12 h-1 bg-white/5 rounded-full overflow-hidden">
+                                                <div className="h-full bg-purple-500 transition-all duration-500" style={{ width: `${Math.min(proc.mem, 100)}%` }} />
+                                            </div>
+                                            <span className="text-purple-400/90 font-bold">{proc.mem.toFixed(1)}%</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-3 px-6 text-muted truncate max-w-[200px] group-hover:text-white transition-colors">{proc.command}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 
 
@@ -885,7 +1151,11 @@ const ServerDetail: React.FC = () => {
                                     <path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" />
                                 </svg>
                             ),
-                            content: <Graphics />
+                            content: (
+                                <div className="h-full overflow-y-auto pr-2 scrollbar-thin">
+                                    <Graphics server={server} connected={connected} />
+                                </div>
+                            )
                         },
                         {
                             id: 'settings',

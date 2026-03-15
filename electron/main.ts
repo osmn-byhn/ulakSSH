@@ -61,6 +61,11 @@ const createWindow = () => {
     return deleteSshServer(id);
   });
 
+  ipcMain.handle('update-server', async (event, id, updates) => {
+    const { updateSshServer } = await import('../src/main/utils/editSsh.js');
+    return updateSshServer(id, updates);
+  });
+
   ipcMain.handle('connect-server', async (event, id) => {
     try {
       const { getServers } = await import('../src/main/utils/getServers.js');
@@ -104,6 +109,10 @@ const createWindow = () => {
         activeSessions.delete(id);
         activeShells.delete(id);
       });
+
+      // Update last connected date
+      const { updateSshServer } = await import('../src/main/utils/editSsh.js');
+      updateSshServer(id, { lastConnected: new Date().toISOString() });
 
       return { success: true };
     } catch (error: any) {
@@ -198,6 +207,10 @@ const createWindow = () => {
 
       conn.on('end', () => { activeTabShells.delete(tabId); });
       conn.on('close', () => { activeTabShells.delete(tabId); });
+
+      // Update last connected date
+      const { updateSshServer } = await import('../src/main/utils/editSsh.js');
+      updateSshServer(serverId, { lastConnected: new Date().toISOString() });
 
       return { success: true };
     } catch (error: any) {

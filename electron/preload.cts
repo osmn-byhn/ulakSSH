@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("api", {
   getSystemInfo: (id: string) => ipcRenderer.invoke('get-system-info', id),
   pickFile: () => ipcRenderer.invoke('pick-file'),
   readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
+  updateServer: (id: string, updates: any) => ipcRenderer.invoke('update-server', id, updates),
 
   // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
   tabSpawn: (serverId: string, tabId: string, cols: number, rows: number) =>

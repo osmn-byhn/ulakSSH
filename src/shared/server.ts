@@ -13,4 +13,5 @@ export type Server = {
     passphrase?: string;
     color?: string;
     os?: string;
+    lastConnected?: string;
 }

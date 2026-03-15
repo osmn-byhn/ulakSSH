@@ -17,13 +17,29 @@ interface NeofetchInfoProps {
     };
 }
 
+const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '—';
+    try {
+        const date = new Date(dateStr);
+        return new Intl.DateTimeFormat('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
+    } catch (e) {
+        return '—';
+    }
+};
+
 const details = (server: Server, systemInfo: NeofetchInfoProps['systemInfo']) => [
     { label: 'OS', value: systemInfo?.os || server.os || 'Linux', color: '#06b6d4' },
     { label: 'Host', value: server.host, color: '#7c3aed' },
     { label: 'Kernel', value: systemInfo?.kernel || '—', color: '#3b82f6' },
     { label: 'Uptime', value: systemInfo?.uptime || '—', color: '#10b981' },
     { label: 'Shell', value: systemInfo?.shell || 'bash', color: '#f59e0b' },
-    { label: 'CPU', value: systemInfo?.cpu || '—', color: '#f43f5e' },
+    { label: 'Last Session', value: formatDate(server.lastConnected), color: '#f43f5e' },
     { label: 'Memory', value: systemInfo?.memory || '—', color: '#a855f7' },
 ];
 
@@ -60,7 +76,6 @@ const NeofetchInfo: React.FC<NeofetchInfoProps> = ({ server, connected, systemIn
                         <OsIcon
                             os={server.os}
                             className="w-28 h-28"
-                            style={{ filter: 'drop-shadow(0 0 16px rgba(6,182,212,0.3))' } as any}
                         />
                     </div>
                     {/* OS name in ASCII style */}

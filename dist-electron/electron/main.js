@@ -52,6 +52,10 @@ const createWindow = () => {
         const { deleteSshServer } = await import('../src/main/utils/deleteSsh.js');
         return deleteSshServer(id);
     });
+    ipcMain.handle('update-server', async (event, id, updates) => {
+        const { updateSshServer } = await import('../src/main/utils/editSsh.js');
+        return updateSshServer(id, updates);
+    });
     ipcMain.handle('connect-server', async (event, id) => {
         try {
             const { getServers } = await import('../src/main/utils/getServers.js');
@@ -89,6 +93,9 @@ const createWindow = () => {
                 activeSessions.delete(id);
                 activeShells.delete(id);
             });
+            // Update last connected date
+            const { updateSshServer } = await import('../src/main/utils/editSsh.js');
+            updateSshServer(id, { lastConnected: new Date().toISOString() });
             return { success: true };
         }
         catch (error) {
@@ -183,6 +190,9 @@ const createWindow = () => {
             });
             conn.on('end', () => { activeTabShells.delete(tabId); });
             conn.on('close', () => { activeTabShells.delete(tabId); });
+            // Update last connected date
+            const { updateSshServer } = await import('../src/main/utils/editSsh.js');
+            updateSshServer(serverId, { lastConnected: new Date().toISOString() });
             return { success: true };
         }
         catch (error) {
@@ -192,8 +202,17 @@ const createWindow = () => {
     });
     ipcMain.on('tab-input', (_event, tabId, data) => {
         const tab = activeTabShells.get(tabId);
-        if (tab)
-            tab.stream.write(data);
+        if (tab) {
+            if (tab.stream.writable) {
+                tab.stream.write(data);
+            }
+            else {
+                console.warn(`[tab-input] Stream for tab ${tabId} is not writable`);
+            }
+        }
+        else {
+            console.warn(`[tab-input] Tab ${tabId} not found`);
+        }
     });
     ipcMain.on('tab-resize', (_event, tabId, cols, rows) => {
         const tab = activeTabShells.get(tabId);

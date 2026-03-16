@@ -124,3 +124,68 @@ export const moveRemoteItem = (conn, src, dest) => {
         });
     });
 };
+export const downloadRemoteFile = (conn, remotePath, localPath) => {
+    return new Promise((resolve, reject) => {
+        conn.sftp((err, sftp) => {
+            if (err)
+                return reject(err);
+            sftp.fastGet(remotePath, localPath, (getErr) => {
+                sftp.end();
+                if (getErr) {
+                    console.error(`SFTP fastGet error from ${remotePath} to ${localPath}:`, getErr);
+                    return reject(new Error(`Download failed: ${getErr.message}`));
+                }
+                resolve();
+            });
+        });
+    });
+};
+export const uploadLocalFile = (conn, localPath, remotePath) => {
+    return new Promise((resolve, reject) => {
+        conn.sftp((err, sftp) => {
+            if (err)
+                return reject(err);
+            sftp.fastPut(localPath, remotePath, (putErr) => {
+                sftp.end();
+                if (putErr) {
+                    console.error(`SFTP fastPut error from ${localPath} to ${remotePath}:`, putErr);
+                    return reject(new Error(`Upload failed: ${putErr.message}`));
+                }
+                resolve();
+            });
+        });
+    });
+};
+export const archiveAndDownloadDirectory = (conn, remotePath, localPath) => {
+    return new Promise((resolve, reject) => {
+        const basename = remotePath.split('/').pop() || 'folder';
+        const remoteArchivePath = `/tmp/${basename}_${Date.now()}.tar.gz`;
+        // Command to create archive
+        // -C is for change directory so we don't include the full path in the archive
+        const dir = remotePath.substring(0, remotePath.lastIndexOf('/')) || '/';
+        const name = remotePath.substring(remotePath.lastIndexOf('/') + 1);
+        conn.exec(`tar -czf "${remoteArchivePath}" -C "${dir}" "${name}"`, (err, stream) => {
+            if (err)
+                return reject(err);
+            stream.on('close', (code) => {
+                if (code !== 0)
+                    return reject(new Error(`Exit code ${code} while archiving`));
+                // Download the archive
+                conn.sftp((sftpErr, sftp) => {
+                    if (sftpErr)
+                        return reject(sftpErr);
+                    sftp.fastGet(remoteArchivePath, localPath, (getErr) => {
+                        sftp.end();
+                        // Cleanup remote archive regardless of result
+                        conn.exec(`rm "${remoteArchivePath}"`, () => { });
+                        if (getErr) {
+                            console.error(`SFTP fastGet error for archive ${remoteArchivePath}:`, getErr);
+                            return reject(new Error(`Archive download failed: ${getErr.message}`));
+                        }
+                        resolve();
+                    });
+                });
+            }).on('data', () => { }).stderr.on('data', () => { });
+        });
+    });
+};

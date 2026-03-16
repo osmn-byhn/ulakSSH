@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld("api", {
   renameRemoteItem: (serverId: string, oldPath: string, newPath: string) => ipcRenderer.invoke('rename-remote-item', serverId, oldPath, newPath),
   copyRemoteItem: (serverId: string, src: string, dest: string) => ipcRenderer.invoke('copy-remote-item', serverId, src, dest),
   moveRemoteItem: (serverId: string, src: string, dest: string) => ipcRenderer.invoke('move-remote-item', serverId, src, dest),
+  downloadItem: (serverId: string, remotePath: string, isDirectory: boolean) => ipcRenderer.invoke('download-remote-item', serverId, remotePath, isDirectory),
+  uploadItems: (serverId: string, remoteDir: string) => ipcRenderer.invoke('upload-remote-item', serverId, remoteDir),
 
   // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
   tabSpawn: (serverId: string, tabId: string, cols: number, rows: number) =>

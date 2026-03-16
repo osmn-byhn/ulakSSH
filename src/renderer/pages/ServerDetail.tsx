@@ -6,7 +6,7 @@ import TabSystem from "../components/ui/TabSystem";
 import CodeEditor from "../components/ui/CodeEditor";
 import Editor from "@monaco-editor/react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Cpu, Database, Activity, Layers, Clock, Gauge, FolderPlus, FilePlus, Edit2, Trash2, Copy, FileCode, MoreVertical, Plus } from 'lucide-react';
+import { Cpu, Database, Activity, Layers, Clock, Gauge, FolderPlus, FilePlus, Edit2, Trash2, Copy, FileCode, Plus, Download, Upload } from 'lucide-react';
 import type { AlertType } from "../components/ui/Alert";
 import type { Server } from "../../shared/server";
 
@@ -405,6 +405,41 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
         }
     };
 
+    const handleDownload = async (item: any) => {
+        const fullPath = path.endsWith('/') ? `${path}${item.name}` : `${path}/${item.name}`;
+        setLoading(true);
+        try {
+            const result = await api.downloadItem(server.id, fullPath, item.isDirectory);
+            if (result.success) {
+                triggerAlert(`Downloaded "${item.name}" successfully`, "info");
+            } else if (result.error !== 'Cancelled') {
+                triggerAlert(`Download failed: ${result.error}`, "error");
+            }
+        } catch (err: any) {
+            triggerAlert(`Critical error during download: ${err.message || 'Check console'}`, "error");
+            console.error("Download interaction failed:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpload = async () => {
+        setLoading(true);
+        try {
+            const result = await api.uploadItems(server.id, path);
+            if (result.success) {
+                triggerAlert("Files uploaded successfully", "info");
+                loadDirectory(path);
+            } else if (result.error !== 'Cancelled') {
+                triggerAlert(`Upload failed: ${result.error}`, "error");
+            }
+        } catch (err) {
+            triggerAlert("Critical error during upload", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleItemClick = async (item: any) => {
         const fullPath = path.endsWith('/') ? `${path}${item.name}` : `${path}/${item.name}`;
 
@@ -506,6 +541,16 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
 
                 {/* Controls */}
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleUpload}
+                        disabled={loading || !connected}
+                        className="p-2 px-3 rounded-xl bg-[#06b6d4]/10 border border-[#06b6d4]/30 hover:bg-[#06b6d4]/20 text-[#06b6d4] flex items-center gap-2 transition-all disabled:opacity-30"
+                        title="Upload (Export) to this directory"
+                    >
+                        <Upload className="w-4 h-4" />
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest hidden sm:inline">Export</span>
+                    </button>
+
                     <button
                         onClick={() => loadDirectory(path)}
                         disabled={loading || !connected}
@@ -682,6 +727,11 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                                 label: 'Rename', 
                                 icon: <Edit2 className="w-4 h-4" />, 
                                 onClick: () => { setShowNameDialog({ type: 'rename', target: contextMenu.target }); setNameInputValue(contextMenu.target.name); } 
+                            },
+                            { 
+                                label: 'Download', 
+                                icon: <Download className="w-4 h-4" />, 
+                                onClick: () => handleDownload(contextMenu.target) 
                             },
                             { 
                                 label: 'Copy', 

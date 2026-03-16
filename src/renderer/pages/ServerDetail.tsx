@@ -6,7 +6,7 @@ import TabSystem from "../components/ui/TabSystem";
 import CodeEditor from "../components/ui/CodeEditor";
 import Editor from "@monaco-editor/react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Cpu, Database, Activity, Layers, Clock, Gauge } from 'lucide-react';
+import { Cpu, Database, Activity, Layers, Clock, Gauge, FolderPlus, FilePlus, Edit2, Trash2, Copy, FileCode, MoreVertical, Plus } from 'lucide-react';
 import type { AlertType } from "../components/ui/Alert";
 import type { Server } from "../../shared/server";
 
@@ -28,6 +28,17 @@ interface ServerStats {
     memory: { total: number; used: number; free: number; percent: number; };
     processes: Array<{ pid: string; user: string; cpu: number; mem: number; command: string; }>;
     gpu?: { name: string; usage: number; memoryUsed: number; memoryTotal: number; temp: number; };
+    disk?: {
+        device: string;
+        type: string;
+        mount: string;
+        total: string;
+        used: string;
+        free: string;
+        percent: number;
+        topConsumers: Array<{ size: string; path: string; percent: number; }>;
+    };
+    logins?: Array<{ user: string; ip: string; status: 'success' | 'failed'; date: string; }>;
     uptime: string;
 }
 
@@ -179,11 +190,68 @@ const EditorModal: React.FC<EditorModalProps> = ({ isOpen, onClose, filename, co
     );
 };
 
+interface ContextMenuProps {
+    x: number;
+    y: number;
+    onClose: () => void;
+    items: Array<{
+        label: string;
+        icon: React.ReactNode;
+        onClick: () => void;
+        danger?: boolean;
+        disabled?: boolean;
+    }>;
+}
+
+const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, items }) => {
+    useEffect(() => {
+        const handleClick = () => onClose();
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, [onClose]);
+
+    return (
+        <div 
+            className="fixed z-[200] glass rounded-2xl border border-white/10 shadow-2xl overflow-hidden min-w-[180px] animate-fade-in"
+            style={{ top: y, left: x }}
+        >
+            <div className="py-1 px-1 flex flex-col gap-0.5">
+                {items.map((item, idx) => (
+                    <button
+                        key={idx}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (!item.disabled) {
+                                item.onClick();
+                                onClose();
+                            }
+                        }}
+                        disabled={item.disabled}
+                        className={`flex items-center gap-3 px-3 py-2 text-[10px] font-mono font-bold uppercase tracking-wider transition-all rounded-xl w-full text-left
+                            ${item.disabled ? 'opacity-30 cursor-not-allowed' : 
+                              item.danger ? 'text-rose-400 hover:bg-rose-500/10' : 'text-muted hover:text-white hover:bg-white/5'}
+                        `}
+                    >
+                        <span className="shrink-0">{item.icon}</span>
+                        <span>{item.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (msg: string, type: AlertType) => void }> = ({ server, connected, triggerAlert }) => {
     const [path, setPath] = useState('/');
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, target: any | null } | null>(null);
+    const [clipboard, setClipboard] = useState<{ path: string, type: 'copy' | 'cut', name: string } | null>(null);
+    
+    // UI Dialog states
+    const [showNameDialog, setShowNameDialog] = useState<{ type: 'file' | 'folder' | 'rename', target?: any } | null>(null);
+    const [nameInputValue, setNameInputValue] = useState('');
 
     // Settings from localStorage
     const [viewMode, setViewMode] = useState<'grid' | 'list'>(
@@ -234,6 +302,106 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
             triggerAlert("Failed to fetch directory contents", "error");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleContextMenu = (e: React.MouseEvent, item: any | null) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ x: e.clientX, y: e.clientY, target: item });
+    };
+
+    const handleCreateFolder = async (name: string) => {
+        if (!name) return;
+        const fullPath = path.endsWith('/') ? `${path}${name}` : `${path}/${name}`;
+        try {
+            const result = await api.createRemoteDirectory(server.id, fullPath);
+            if (result.success) {
+                triggerAlert(`Folder "${name}" created`, "info");
+                loadDirectory(path);
+            } else {
+                triggerAlert(`Error: ${result.error}`, "error");
+            }
+        } catch (err) {
+            triggerAlert("Failed to create folder", "error");
+        }
+    };
+
+    const handleCreateFile = async (name: string) => {
+        if (!name) return;
+        const fullPath = path.endsWith('/') ? `${path}${name}` : `${path}/${name}`;
+        try {
+            const result = await api.writeRemoteFile(server.id, fullPath, '');
+            if (result.success) {
+                triggerAlert(`File "${name}" created`, "info");
+                loadDirectory(path);
+            } else {
+                triggerAlert(`Error: ${result.error}`, "error");
+            }
+        } catch (err) {
+            triggerAlert("Failed to create file", "error");
+        }
+    };
+
+    const handleDelete = async (item: any) => {
+        const fullPath = path.endsWith('/') ? `${path}${item.name}` : `${path}/${item.name}`;
+        if (!confirm(`Are you sure you want to delete ${item.isDirectory ? 'directory' : 'file'} "${item.name}"?`)) return;
+        
+        try {
+            const result = await api.deleteRemoteItem(server.id, fullPath, item.isDirectory);
+            if (result.success) {
+                triggerAlert(`"${item.name}" deleted`, "info");
+                loadDirectory(path);
+            } else {
+                triggerAlert(`Error: ${result.error}`, "error");
+            }
+        } catch (err) {
+            triggerAlert("Failed to delete item", "error");
+        }
+    };
+
+    const handleRename = async (item: any, newName: string) => {
+        if (!newName || newName === item.name) return;
+        const oldPath = path.endsWith('/') ? `${path}${item.name}` : `${path}/${item.name}`;
+        const newPath = path.endsWith('/') ? `${path}${newName}` : `${path}/${newName}`;
+        
+        try {
+            const result = await api.renameRemoteItem(server.id, oldPath, newPath);
+            if (result.success) {
+                triggerAlert(`Renamed to "${newName}"`, "info");
+                loadDirectory(path);
+            } else {
+                triggerAlert(`Error: ${result.error}`, "error");
+            }
+        } catch (err) {
+            triggerAlert("Failed to rename item", "error");
+        }
+    };
+
+    const handleCopyCut = (item: any, type: 'copy' | 'cut') => {
+        const fullPath = path.endsWith('/') ? `${path}${item.name}` : `${path}/${item.name}`;
+        setClipboard({ path: fullPath, type, name: item.name });
+        triggerAlert(`${type === 'copy' ? 'Copied' : 'Cut'} "${item.name}" to clipboard`, "info");
+    };
+
+    const handlePaste = async () => {
+        if (!clipboard) return;
+        const destPath = path.endsWith('/') ? `${path}${clipboard.name}` : `${path}/${clipboard.name}`;
+        
+        try {
+            const result = clipboard.type === 'copy' 
+                ? await api.copyRemoteItem(server.id, clipboard.path, destPath)
+                : await api.moveRemoteItem(server.id, clipboard.path, destPath);
+                
+            if (result.success) {
+                triggerAlert(`Successfully ${clipboard.type === 'copy' ? 'copied' : 'moved'} to ${path}`, "info");
+                if (clipboard.type === 'cut') setClipboard(null);
+                loadDirectory(path);
+            } else {
+                triggerAlert(`Error: ${result.error}`, "error");
+            }
+        } catch (err) {
+            triggerAlert("Paste operation failed", "error");
         }
     };
 
@@ -315,7 +483,11 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
     const breadcrumbs = path.split('/').filter(p => p);
 
     return (
-        <div className="flex flex-col gap-4 animate-fade-in h-[500px]">
+        <div 
+            className="flex flex-col gap-4 animate-fade-in h-[500px] outline-none"
+            onContextMenu={(e) => handleContextMenu(e, null)}
+            tabIndex={0}
+        >
             {/* Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-4 glass rounded-2xl p-3 border border-white/5">
                 {/* Search */}
@@ -430,6 +602,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                             <button
                                 key={i}
                                 onClick={() => handleItemClick(item)}
+                                onContextMenu={(e) => handleContextMenu(e, item)}
                                 className="group flex flex-col items-center gap-2 p-3 rounded-xl border border-transparent hover:border-white/10 hover:bg-white/5 transition-all outline-none text-center"
                             >
                                 <div className="relative">
@@ -459,6 +632,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                                 <tr
                                     key={i}
                                     onClick={() => handleItemClick(item)}
+                                    onContextMenu={(e) => handleContextMenu(e, item)}
                                     className="group hover:bg-white/5 cursor-pointer transition-colors"
                                 >
                                     <td className="py-2.5 pl-2 flex items-center gap-3 max-w-[300px]">
@@ -485,6 +659,114 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                 content={selectedFile?.content || ''}
                 onSave={handleSaveFile}
             />
+
+            {/* Context Menu Instance */}
+            {contextMenu && (
+                <ContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    onClose={() => setContextMenu(null)}
+                    items={[
+                        { 
+                            label: 'New Folder', 
+                            icon: <FolderPlus className="w-4 h-4" />, 
+                            onClick: () => { setShowNameDialog({ type: 'folder' }); setNameInputValue(''); } 
+                        },
+                        { 
+                            label: 'New File', 
+                            icon: <FilePlus className="w-4 h-4" />, 
+                            onClick: () => { setShowNameDialog({ type: 'file' }); setNameInputValue(''); } 
+                        },
+                        ...(contextMenu.target ? [
+                            { 
+                                label: 'Rename', 
+                                icon: <Edit2 className="w-4 h-4" />, 
+                                onClick: () => { setShowNameDialog({ type: 'rename', target: contextMenu.target }); setNameInputValue(contextMenu.target.name); } 
+                            },
+                            { 
+                                label: 'Copy', 
+                                icon: <Copy className="w-4 h-4" />, 
+                                onClick: () => handleCopyCut(contextMenu.target, 'copy') 
+                            },
+                            { 
+                                label: 'Cut', 
+                                icon: <FileCode className="w-4 h-4" />, 
+                                onClick: () => handleCopyCut(contextMenu.target, 'cut') 
+                            },
+                            { 
+                                label: 'Delete', 
+                                icon: <Trash2 className="w-4 h-4" />, 
+                                onClick: () => handleDelete(contextMenu.target),
+                                danger: true 
+                            },
+                        ] : []),
+                        { 
+                            label: 'Paste', 
+                            icon: <Plus className="w-4 h-4" />, 
+                            onClick: handlePaste,
+                            disabled: !clipboard 
+                        },
+                        { 
+                            label: 'Refresh', 
+                            icon: <Activity className="w-4 h-4" />, 
+                            onClick: () => loadDirectory(path) 
+                        },
+                    ]}
+                />
+            )}
+
+            {/* Name Input Dialog */}
+            {showNameDialog && (
+                <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+                    <div className="glass w-full max-w-sm rounded-3xl border border-white/10 shadow-2xl p-6 flex flex-col gap-4 scale-in">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-2xl bg-[#06b6d4]/10 text-[#06b6d4]">
+                                {showNameDialog.type === 'folder' ? <FolderPlus className="w-5 h-5" /> : 
+                                 showNameDialog.type === 'file' ? <FilePlus className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
+                            </div>
+                            <h3 className="text-sm font-bold font-mono uppercase tracking-widest">
+                                {showNameDialog.type === 'folder' ? 'Create Folder' : 
+                                 showNameDialog.type === 'file' ? 'Create File' : 'Rename Item'}
+                            </h3>
+                        </div>
+                        <input
+                            autoFocus
+                            type="text"
+                            value={nameInputValue}
+                            onChange={(e) => setNameInputValue(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    if (showNameDialog.type === 'rename') handleRename(showNameDialog.target, nameInputValue);
+                                    else if (showNameDialog.type === 'folder') handleCreateFolder(nameInputValue);
+                                    else if (showNameDialog.type === 'file') handleCreateFile(nameInputValue);
+                                    setShowNameDialog(null);
+                                } else if (e.key === 'Escape') setShowNameDialog(null);
+                            }}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50"
+                            placeholder="Enter name..."
+                        />
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowNameDialog(null)}
+                                className="flex-1 py-2 rounded-xl text-[10px] font-mono font-bold uppercase tracking-widest text-muted hover:text-white hover:bg-white/5 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (showNameDialog.type === 'rename') handleRename(showNameDialog.target, nameInputValue);
+                                    else if (showNameDialog.type === 'folder') handleCreateFolder(nameInputValue);
+                                    else if (showNameDialog.type === 'file') handleCreateFile(nameInputValue);
+                                    setShowNameDialog(null);
+                                }}
+                                className="flex-1 py-2 rounded-xl bg-[#06b6d4] text-black text-[10px] font-mono font-bold uppercase tracking-widest"
+                            >
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -573,42 +855,12 @@ const Apps: React.FC = () => {
     );
 }
 
-const Graphics: React.FC<{ server: Server | null, connected: boolean }> = ({ server, connected }) => {
-    const [stats, setStats] = useState<ServerStats | null>(null);
-    const [history, setHistory] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const api = (window as any).api;
+const Graphics: React.FC<{ server: Server | null, connected: boolean, stats: ServerStats | null, history: any[] }> = ({ server, connected, stats, history }) => {
+    const [loading, setLoading] = useState(!stats);
 
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (connected && server) {
-            fetchStats();
-            interval = setInterval(fetchStats, 1000); // 1-second polling for high granularity
-        }
-        return () => clearInterval(interval);
-    }, [connected, server]);
-
-    const fetchStats = async () => {
-        if (!server) return;
-        try {
-            const result = await api.getServerStats(server.id);
-            if (result && !result.error) {
-                setStats(result);
-                setHistory(prev => {
-                    const newPoint = {
-                        time: new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                        cpu: result.cpu.usage,
-                        mem: result.memory.percent
-                    };
-                    const updated = [...prev, newPoint].slice(-60); // Keep last 60 points (1 minute @ 1s)
-                    return updated;
-                });
-                setLoading(false);
-            }
-        } catch (err) {
-            console.error("Stats poll error:", err);
-        }
-    };
+        if (stats) setLoading(false);
+    }, [stats]);
 
     if (!connected || !server) return (
         <div className="h-full flex flex-col items-center justify-center opacity-40">
@@ -650,7 +902,7 @@ const Graphics: React.FC<{ server: Server | null, connected: boolean }> = ({ ser
                         {stats?.memory.percent.toFixed(1)}<span className="text-sm text-purple-500">%</span>
                     </div>
                     <div className="text-[10px] text-muted font-mono">
-                        {(stats!.memory.used / 1024 / 1024 / 1024).toFixed(1)}G / {(stats!.memory.total / 1024 / 1024 / 1024).toFixed(1)}G
+                        {stats ? ((stats.memory.used / 1024 / 1024 / 1024).toFixed(1)) : '0'}G / {stats ? ((stats.memory.total / 1024 / 1024 / 1024).toFixed(1)) : '0'}G
                     </div>
                 </div>
 
@@ -699,7 +951,6 @@ const Graphics: React.FC<{ server: Server | null, connected: boolean }> = ({ ser
                             <YAxis
                                 domain={[0, 100]}
                                 ticks={[0, 25, 50, 75, 100]}
-                                interval={0}
                                 stroke="rgba(255,255,255,0.1)"
                                 tick={{ fontSize: 8, fill: 'rgba(255,255,255,0.3)' }}
                                 width={25}
@@ -780,6 +1031,71 @@ const Graphics: React.FC<{ server: Server | null, connected: boolean }> = ({ ser
                 </div>
             </div>
 
+            {/* Disk Overview Section */}
+            {stats?.disk && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="glass rounded-3xl p-6 border border-white/5 flex flex-col gap-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-xs font-black font-mono tracking-widest uppercase text-white/90">Storage Partition</h3>
+                                    <p className="text-[10px] font-mono text-muted">{stats.disk.device} • {stats.disk.type} Node</p>
+                                </div>
+                            </div>
+                            <div className="text-right flex flex-col items-end">
+                                <span className="text-xl font-bold font-mono text-amber-500">{stats.disk.percent}%</span>
+                                <span className="text-[8px] font-mono text-muted uppercase tracking-widest">Allocation</span>
+                            </div>
+                        </div>
+
+                        {/* Usage Progress Bar */}
+                        <div className="flex flex-col gap-2">
+                            <div className="flex justify-between text-[10px] font-mono text-muted italic">
+                                <span>{stats.disk.used} used</span>
+                                <span>{stats.disk.total} capacity</span>
+                            </div>
+                            <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
+                                <div 
+                                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-600 transition-all duration-1000 shadow-[0_0_15px_rgba(245,158,11,0.3)]" 
+                                    style={{ width: `${stats.disk.percent}%` }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="glass rounded-3xl p-6 border border-white/5 flex flex-col gap-4">
+                         <div className="flex items-center gap-3">
+                             <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                                 <Layers className="w-4 h-4" />
+                             </div>
+                             <h4 className="text-xs font-black font-mono tracking-widest uppercase text-white/90">Storage Consumers</h4>
+                         </div>
+                         <div className="flex flex-col gap-3">
+                             {stats.disk.topConsumers.map((item, idx) => (
+                                 <div key={idx} className="flex items-center justify-between group">
+                                     <div className="flex items-center gap-3 max-w-[70%]">
+                                         <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/30 group-hover:bg-cyan-500 transition-colors" />
+                                         <span className="text-[10px] font-mono text-muted truncate group-hover:text-white transition-colors">{item.path}</span>
+                                     </div>
+                                     <div className="flex items-center gap-4">
+                                         <span className="text-[10px] font-mono text-white/30">{item.size}</span>
+                                         <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden hidden sm:block">
+                                             <div className="h-full bg-cyan-500/50" style={{ width: `${item.percent}%` }} />
+                                         </div>
+                                         <span className="text-[10px] font-mono font-bold text-cyan-500 w-8 text-right">{item.percent.toFixed(0)}%</span>
+                                     </div>
+                                 </div>
+                             ))}
+                         </div>
+                    </div>
+                </div>
+            )}
+
             {/* Processes Table */}
             <div className="glass overflow-hidden rounded-3xl border border-white/5 flex flex-col">
                 <div className="p-4 px-6 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
@@ -851,7 +1167,39 @@ const ServerDetail: React.FC = () => {
     const [alertType, setAlertType] = useState<AlertType>('info');
     const [showAlert, setShowAlert] = useState(false);
 
+    const [stats, setStats] = useState<ServerStats | null>(null);
+    const [history, setHistory] = useState<any[]>([]);
+
     const api = (window as any).api;
+
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (connected && server) {
+            fetchStats();
+            interval = setInterval(fetchStats, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [connected, server]);
+
+    const fetchStats = async () => {
+        if (!server) return;
+        try {
+            const result = await api.getServerStats(server.id);
+            if (result && !result.error) {
+                setStats(result);
+                setHistory(prev => {
+                    const newPoint = {
+                        time: new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                        cpu: result.cpu.usage,
+                        mem: result.memory.percent
+                    };
+                    return [...prev, newPoint].slice(-60);
+                });
+            }
+        } catch (err) {
+            console.error("Stats poll error:", err);
+        }
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -1072,7 +1420,7 @@ const ServerDetail: React.FC = () => {
                                     <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
                                 </svg>
                             ),
-                            content: <NeofetchInfo server={server} connected={connected} systemInfo={systemInfo} />
+                            content: <NeofetchInfo server={server} connected={connected} systemInfo={systemInfo} stats={stats} />
                         },
                         {
                             id: 'dir',
@@ -1153,7 +1501,7 @@ const ServerDetail: React.FC = () => {
                             ),
                             content: (
                                 <div className="h-full overflow-y-auto pr-2 scrollbar-thin">
-                                    <Graphics server={server} connected={connected} />
+                                    <Graphics server={server} connected={connected} stats={stats} history={history} />
                                 </div>
                             )
                         },

@@ -183,6 +183,76 @@ const createWindow = () => {
             return { error: error.message };
         }
     });
+    ipcMain.handle('create-remote-directory', async (event, id, path) => {
+        try {
+            const conn = activeSessions.get(id);
+            if (!conn)
+                throw new Error('No active session for this server');
+            const { createRemoteDirectory } = await import('../src/main/ssh/sftp.js');
+            await createRemoteDirectory(conn, path);
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Failed to create remote directory:', error);
+            return { error: error.message };
+        }
+    });
+    ipcMain.handle('delete-remote-item', async (event, id, path, isDirectory) => {
+        try {
+            const conn = activeSessions.get(id);
+            if (!conn)
+                throw new Error('No active session for this server');
+            const { deleteRemoteItem } = await import('../src/main/ssh/sftp.js');
+            await deleteRemoteItem(conn, path, isDirectory);
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Failed to delete remote item:', error);
+            return { error: error.message };
+        }
+    });
+    ipcMain.handle('rename-remote-item', async (event, id, oldPath, newPath) => {
+        try {
+            const conn = activeSessions.get(id);
+            if (!conn)
+                throw new Error('No active session for this server');
+            const { renameRemoteItem } = await import('../src/main/ssh/sftp.js');
+            await renameRemoteItem(conn, oldPath, newPath);
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Failed to rename remote item:', error);
+            return { error: error.message };
+        }
+    });
+    ipcMain.handle('copy-remote-item', async (event, id, src, dest) => {
+        try {
+            const conn = activeSessions.get(id);
+            if (!conn)
+                throw new Error('No active session for this server');
+            const { copyRemoteItem } = await import('../src/main/ssh/sftp.js');
+            await copyRemoteItem(conn, src, dest);
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Failed to copy remote item:', error);
+            return { error: error.message };
+        }
+    });
+    ipcMain.handle('move-remote-item', async (event, id, src, dest) => {
+        try {
+            const conn = activeSessions.get(id);
+            if (!conn)
+                throw new Error('No active session for this server');
+            const { moveRemoteItem } = await import('../src/main/ssh/sftp.js');
+            await moveRemoteItem(conn, src, dest);
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Failed to move remote item:', error);
+            return { error: error.message };
+        }
+    });
     ipcMain.handle('get-server-stats', async (event, id) => {
         try {
             const conn = activeSessions.get(id);

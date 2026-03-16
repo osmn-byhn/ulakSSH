@@ -27,17 +27,32 @@ export interface ServerStats {
         memoryTotal: number;
         temp: number;
     };
+    disk?: {
+        device: string;
+        type: string; // SSD or HDD
+        mount: string;
+        total: string;
+        used: string;
+        free: string;
+        percent: number;
+        topConsumers: Array<{
+            size: string;
+            path: string;
+            percent: number;
+        }>;
+    };
+    logins?: Array<{
+        user: string;
+        ip: string;
+        status: 'success' | 'failed';
+        date: string;
+    }>;
     uptime: string;
 }
 
 export const getServerStats = (conn: Client): Promise<ServerStats> => {
     return new Promise((resolve, reject) => {
         // Combined command to get most info in one go
-        // 1. CPU usage (from top)
-        // 2. Memory (from free)
-        // 3. Processes (from ps)
-        // 4. Uptime
-        // 5. GPU (conditional nvidia-smi)
         const cmd = `
             # Function to get CPU times from /proc/stat
             get_cpu_times() {
@@ -92,6 +107,26 @@ EOF
             # Processes (Top 10 by CPU)
             PROCESSES=$(ps aux --sort=-%cpu | head -n 11 | tail -n 10 | awk '{print $2"|"$1"|"$3"|"$4"|"$11}')
             
+            # Disk Info (Root partition)
+            DISK_USAGE=$(df -B1 / | tail -n 1 | awk '{print $1"|"$2"|"$3"|"$4"|"$5"|"$6}')
+            ROOT_DEV=$(df / | tail -n 1 | awk '{print $1}')
+            DISK_TYPE="Unknown"
+            if [ -b "$ROOT_DEV" ]; then
+                DEV_BASE=$(basename $(readlink -f "$ROOT_DEV"))
+                # Remove partition number if present (e.g., sda1 -> sda, nvme0n1p1 -> nvme0n1)
+                PARENT_DEV=$(echo "$DEV_BASE" | sed 's/[0-9p]*$//')
+                IS_ROTA=$(cat /sys/block/$PARENT_DEV/queue/rotational 2>/dev/null)
+                if [ "$IS_ROTA" = "0" ]; then DISK_TYPE="SSD"; elif [ "$IS_ROTA" = "1" ]; then DISK_TYPE="HDD"; fi
+            fi
+            
+            # Top Disk Consumers (in home or root, cautious with du depth)
+            TOP_CONSUMERS=$(du -x -B1 -d 1 / 2>/dev/null | sort -rn | head -n 6 | tail -n 5 | awk '{print $1"|"$2}')
+            
+            # Logins history
+            SUCCESS_LOGINS=$(last -n 10 -i | grep -v "reboot" | grep -v "wtmp" | awk '{print $1"|"$3"|success|"$4" "$5" "$6" "$7}')
+            # Failed logins (might need sudo, if it fails we just get empty)
+            FAILED_LOGINS=$(lastb -n 10 -i 2>/dev/null | awk '{print $1"|"$3"|failed|"$4" "$5" "$6" "$7}')
+            
             # Uptime
             UPTIME=$(uptime -p)
             
@@ -109,6 +144,13 @@ EOF
             echo "MEM_TOTAL:$MEM_TOTAL"
             echo "MEM_USED:$MEM_USED"
             echo "MEM_FREE:$MEM_FREE"
+            echo "DISK_USAGE:$DISK_USAGE"
+            echo "DISK_TYPE:$DISK_TYPE"
+            echo "TOP_CONSUMERS:"
+            echo "$TOP_CONSUMERS"
+            echo "LOGINS:"
+            echo "$SUCCESS_LOGINS"
+            echo "$FAILED_LOGINS"
             echo "UPTIME:$UPTIME"
             echo "GPU:$GPU_INFO"
             echo "PROCS:"
@@ -127,25 +169,45 @@ EOF
                         cpu: { usage: 0, loadAvg: [], cores: 1, perCore: [] },
                         memory: { total: 0, used: 0, free: 0, percent: 0 },
                         processes: [],
+                        logins: [],
                         uptime: ''
                     };
 
                     let parsingProcs = false;
+                    let parsingConsumers = false;
+                    let parsingLogins = false;
+
                     for (const line of lines) {
-                        const colonIndex = line.indexOf(':');
-                        if (colonIndex === -1) { // Skip lines without a colon, or process them if they are part of PROCS
-                            if (parsingProcs && line.includes('|')) {
-                                const [pid, user, cpu, mem, cmd] = line.split('|');
-                                stats.processes!.push({
-                                    pid,
-                                    user,
-                                    cpu: parseFloat(cpu) || 0,
-                                    mem: parseFloat(mem) || 0,
-                                    command: cmd
-                                });
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) continue;
+
+                        if (trimmedLine === 'PROCS:') { parsingProcs = true; parsingConsumers = false; parsingLogins = false; continue; }
+                        if (trimmedLine === 'TOP_CONSUMERS:') { parsingConsumers = true; parsingProcs = false; parsingLogins = false; continue; }
+                        if (trimmedLine === 'LOGINS:') { parsingLogins = true; parsingProcs = false; parsingConsumers = false; continue; }
+
+                        if (parsingProcs && trimmedLine.includes('|')) {
+                            const [pid, user, cpu, mem, cmd] = trimmedLine.split('|');
+                            stats.processes!.push({ pid, user, cpu: parseFloat(cpu) || 0, mem: parseFloat(mem) || 0, command: cmd });
+                            continue;
+                        }
+
+                        if (parsingConsumers && trimmedLine.includes('|')) {
+                            const [size, path] = trimmedLine.split('|');
+                            if (!stats.disk) stats.disk = { device: '', type: '', mount: '', total: '', used: '', free: '', percent: 0, topConsumers: [] };
+                            stats.disk.topConsumers.push({ size, path, percent: 0 });
+                            continue;
+                        }
+
+                        if (parsingLogins && trimmedLine.includes('|')) {
+                            const [user, ip, status, date] = trimmedLine.split('|');
+                            if (user && ip && status && date) {
+                                stats.logins!.push({ user, ip, status: status as any, date });
                             }
                             continue;
                         }
+
+                        const colonIndex = line.indexOf(':');
+                        if (colonIndex === -1) continue;
 
                         const [key, val] = [line.slice(0, colonIndex), line.slice(colonIndex + 1)];
 
@@ -156,28 +218,53 @@ EOF
                         if (key === 'MEM_TOTAL') stats.memory!.total = parseInt(val) || 0;
                         if (key === 'MEM_USED') stats.memory!.used = parseInt(val) || 0;
                         if (key === 'MEM_FREE') stats.memory!.free = parseInt(val) || 0;
+                        if (key === 'DISK_TYPE') {
+                            if (!stats.disk) stats.disk = { device: '', type: '', mount: '', total: '', used: '', free: '', percent: 0, topConsumers: [] };
+                            stats.disk.type = val.trim();
+                        }
+                        if (key === 'DISK_USAGE') {
+                            const [dev, total, used, free, perc, mount] = val.trim().split('|');
+                            if (!stats.disk) stats.disk = { device: '', type: '', mount: '', total: '', used: '', free: '', percent: 0, topConsumers: [] };
+                            stats.disk.device = dev;
+                            stats.disk.total = total;
+                            stats.disk.used = used;
+                            stats.disk.free = free;
+                            stats.disk.percent = parseInt(perc.replace('%', '')) || 0;
+                            stats.disk.mount = mount;
+                        }
                         if (key === 'UPTIME') stats.uptime = val.trim();
                         if (key === 'GPU') {
                             const gpuStr = val.trim();
                             if (gpuStr !== 'N/A' && gpuStr !== '') {
                                 const parts = gpuStr.split(', ');
-                                stats.gpu = {
-                                    name: parts[0],
-                                    usage: parseFloat(parts[1]) || 0,
-                                    memoryUsed: parseFloat(parts[2]) || 0,
-                                    memoryTotal: parseFloat(parts[3]) || 0,
-                                    temp: parseFloat(parts[4]) || 0
-                                };
+                                stats.gpu = { name: parts[0], usage: parseFloat(parts[1]) || 0, memoryUsed: parseFloat(parts[2]) || 0, memoryTotal: parseFloat(parts[3]) || 0, temp: parseFloat(parts[4]) || 0 };
                             }
-                        }
-                        if (key === 'PROCS') {
-                            parsingProcs = true;
-                            continue;
                         }
                     }
 
                     if (stats.memory!.total > 0) {
                         stats.memory!.percent = (stats.memory!.used / stats.memory!.total) * 100;
+                    }
+
+                    if (stats.disk && stats.disk.topConsumers.length > 0) {
+                        const totalUsed = parseInt(stats.disk.used) || 1;
+                        stats.disk.topConsumers = stats.disk.topConsumers.map(c => ({
+                            ...c,
+                            percent: (parseInt(c.size) / totalUsed) * 100
+                        }));
+                        // Format sizes to human readable
+                        const formatSize = (bytes: string) => {
+                            const b = parseInt(bytes);
+                            if (isNaN(b)) return bytes;
+                            const res = b / 1024 / 1024 / 1024;
+                            if (res >= 1) return res.toFixed(1) + 'G';
+                            const resM = b / 1024 / 1024;
+                            return resM.toFixed(1) + 'M';
+                        };
+                        stats.disk.topConsumers.forEach(c => c.size = formatSize(c.size));
+                        stats.disk.total = formatSize(stats.disk.total);
+                        stats.disk.used = formatSize(stats.disk.used);
+                        stats.disk.free = formatSize(stats.disk.free);
                     }
 
                     resolve(stats as ServerStats);
@@ -188,3 +275,4 @@ EOF
         });
     });
 };
+

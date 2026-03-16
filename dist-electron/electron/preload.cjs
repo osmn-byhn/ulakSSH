@@ -29,6 +29,11 @@ electron_1.contextBridge.exposeInMainWorld("api", {
     readRemoteFile: (serverId, filePath) => electron_1.ipcRenderer.invoke('read-remote-file', serverId, filePath),
     writeRemoteFile: (serverId, filePath, content) => electron_1.ipcRenderer.invoke('write-remote-file', serverId, filePath, content),
     getServerStats: (serverId) => electron_1.ipcRenderer.invoke('get-server-stats', serverId),
+    createRemoteDirectory: (serverId, path) => electron_1.ipcRenderer.invoke('create-remote-directory', serverId, path),
+    deleteRemoteItem: (serverId, path, isDirectory) => electron_1.ipcRenderer.invoke('delete-remote-item', serverId, path, isDirectory),
+    renameRemoteItem: (serverId, oldPath, newPath) => electron_1.ipcRenderer.invoke('rename-remote-item', serverId, oldPath, newPath),
+    copyRemoteItem: (serverId, src, dest) => electron_1.ipcRenderer.invoke('copy-remote-item', serverId, src, dest),
+    moveRemoteItem: (serverId, src, dest) => electron_1.ipcRenderer.invoke('move-remote-item', serverId, src, dest),
     // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
     tabSpawn: (serverId, tabId, cols, rows) => electron_1.ipcRenderer.invoke('tab-spawn', serverId, tabId, cols, rows),
     tabInput: (tabId, data) => electron_1.ipcRenderer.send('tab-input', tabId, data),

@@ -337,6 +337,46 @@ ipcMain.handle('get-server-stats', async (event, id) => {
         return { error: error.message };
     }
 });
+ipcMain.handle('get-server-apps', async (event, id) => {
+    try {
+        const conn = activeSessions.get(id);
+        if (!conn)
+            throw new Error('No active session for this server');
+        const { getInstalledApps } = await import('../src/main/ssh/apps.js');
+        return await getInstalledApps(conn);
+    }
+    catch (error) {
+        console.error('Failed to get apps:', error);
+        return { error: error.message };
+    }
+});
+ipcMain.handle('check-server-app-updates', async (event, id) => {
+    try {
+        const conn = activeSessions.get(id);
+        if (!conn)
+            throw new Error('No active session for this server');
+        const { getAppUpdates } = await import('../src/main/ssh/apps.js');
+        return await getAppUpdates(conn);
+    }
+    catch (error) {
+        console.error('Failed to check updates:', error);
+        return { error: error.message };
+    }
+});
+ipcMain.handle('update-server-app', async (event, id, name, type) => {
+    try {
+        const conn = activeSessions.get(id);
+        if (!conn)
+            throw new Error('No active session for this server');
+        const { updateApp } = await import('../src/main/ssh/apps.js');
+        const success = await updateApp(conn, name, type);
+        return { success };
+    }
+    catch (error) {
+        console.error('Failed to update app:', error);
+        return { success: false, error: error.message };
+    }
+});
 // ─── Embedded Terminal Tabs (ssh2 shell stream, no password prompt) ─────────
 // Spawn a new terminal tab: opens a fresh ssh2 connection + shell stream.
 // credentials (password/key) are read from the stored server config automatically.

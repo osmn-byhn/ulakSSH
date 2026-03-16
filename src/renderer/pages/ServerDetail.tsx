@@ -6,7 +6,25 @@ import TabSystem from "../components/ui/TabSystem";
 import CodeEditor from "../components/ui/CodeEditor";
 import Editor from "@monaco-editor/react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Cpu, Database, Activity, Layers, Clock, Gauge, FolderPlus, FilePlus, Edit2, Trash2, Copy, FileCode, Plus, Download, Upload } from 'lucide-react';
+import { 
+    Cpu, 
+    Database, 
+    Activity, 
+    Layers, 
+    Clock, 
+    Gauge, 
+    FolderPlus, 
+    FilePlus, 
+    Edit2, 
+    Trash2, 
+    Copy, 
+    FileCode, 
+    Plus, 
+    Download, 
+    Upload,
+    RefreshCw,
+    ArrowRight
+} from 'lucide-react';
 import type { AlertType } from "../components/ui/Alert";
 import type { Server } from "../../shared/server";
 
@@ -897,10 +915,201 @@ const Health: React.FC = () => {
     );
 }
 
-const Apps: React.FC = () => {
-    return (
-        <div className="h-full">
+const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg: string, type: any) => void }> = ({ serverId, connected, triggerAlert }) => {
+    const [apps, setApps] = useState<any[]>([]);
+    const [updates, setUpdates] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState(true);
+    const [checkingUpdates, setCheckingUpdates] = useState(false);
+    const [updatingPkg, setUpdatingPkg] = useState<string | null>(null);
+    const [activeSubTab, setActiveSubTab] = useState<'main' | 'thirdParty' | 'packages'>('main');
+    
+    const api = (window as any).api;
 
+    useEffect(() => {
+        if (connected) {
+            fetchApps();
+        }
+    }, [serverId, connected]);
+
+    const fetchApps = async () => {
+        setLoading(true);
+        try {
+            const result = await api.getServerApps(serverId);
+            if (result && !result.error) {
+                setApps(result);
+            }
+        } catch (err) {
+            console.error("Failed to fetch apps:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const checkUpdates = async () => {
+        setCheckingUpdates(true);
+        try {
+            const result = await api.checkServerAppUpdates(serverId);
+            if (result && !result.error) {
+                setUpdates(result);
+                const count = Object.keys(result).length;
+                triggerAlert(count > 0 ? `${count} updates found!` : "All apps are up to date", count > 0 ? "info" : "success");
+            }
+        } catch (err) {
+            console.error("Update check failed:", err);
+            triggerAlert("Failed to check for updates", "error");
+        } finally {
+            setCheckingUpdates(false);
+        }
+    };
+
+    const handleUpdate = async (name: string, type: string) => {
+        setUpdatingPkg(name);
+        try {
+            const result = await api.updateServerApp(serverId, name, type);
+            if (result.success) {
+                triggerAlert(`Successfully updated ${name}`, "success");
+                // Remove from updates list and refresh apps
+                const newUpdates = { ...updates };
+                delete newUpdates[name];
+                setUpdates(newUpdates);
+                fetchApps();
+            } else {
+                triggerAlert(`Update failed: ${result.error || 'Unknown error'}`, "error");
+            }
+        } catch (err) {
+            triggerAlert("Update failed", "error");
+        } finally {
+            setUpdatingPkg(null);
+        }
+    };
+
+    if (loading) return (
+        <div className="h-full flex flex-col items-center justify-center p-10">
+            <div className="w-8 h-8 border-2 border-[#06b6d4]/30 border-t-[#06b6d4] rounded-full animate-spin mb-4" />
+            <p className="text-xs font-mono text-muted animate-pulse uppercase tracking-widest">Scanning Application Inventory...</p>
+        </div>
+    );
+
+    const mainApps = apps.filter(a => a.type === 'system');
+    const thirdPartyApps = apps.filter(a => a.type === 'other');
+    const packageApps = apps.filter(a => a.type === 'python' || a.type === 'node');
+    
+    const currentApps = activeSubTab === 'main' ? mainApps : 
+                        activeSubTab === 'thirdParty' ? thirdPartyApps : packageApps;
+
+    return (
+        <div className="h-full overflow-y-auto pr-2 scrollbar-thin flex flex-col gap-4 animate-fade-in">
+            {/* Header & Sub-Tabs */}
+            <div className="glass p-2 rounded-2xl border border-white/5 bg-white/[0.02] flex items-center justify-between gap-4">
+                <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+                    <button
+                        onClick={() => setActiveSubTab('main')}
+                        className={`px-4 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-widest transition-all ${activeSubTab === 'main' ? 'bg-[#06b6d4] text-black shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'text-muted hover:text-white'}`}
+                    >
+                        Main
+                    </button>
+                    <button
+                        onClick={() => setActiveSubTab('thirdParty')}
+                        className={`px-4 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-widest transition-all ${activeSubTab === 'thirdParty' ? 'bg-[#f43f5e] text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]' : 'text-muted hover:text-white'}`}
+                    >
+                        3rd Party
+                    </button>
+                    <button
+                        onClick={() => setActiveSubTab('packages')}
+                        className={`px-4 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-widest transition-all ${activeSubTab === 'packages' ? 'bg-[#a855f7] text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'text-muted hover:text-white'}`}
+                    >
+                        Packages
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={checkUpdates}
+                        disabled={checkingUpdates}
+                        className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all text-[10px] font-mono font-bold uppercase tracking-widest disabled:opacity-50"
+                    >
+                        {checkingUpdates ? <div className="w-3 h-3 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        {checkingUpdates ? 'Checking...' : 'Check Updates'}
+                    </button>
+                    <button 
+                        onClick={fetchApps}
+                        className="p-2 hover:bg-white/5 rounded-xl transition-colors text-muted hover:text-white border border-transparent hover:border-white/10"
+                        title="Rescan All"
+                    >
+                        <Layers className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            </div>
+
+            <div className="glass border border-white/5 rounded-2xl overflow-hidden">
+                <table className="w-full text-left font-mono text-[10px]">
+                    <thead>
+                        <tr className="text-muted border-b border-white/10 bg-white/[0.01]">
+                            <th className="p-4 px-6 font-bold uppercase tracking-widest">Name</th>
+                            <th className="p-4 px-6 font-bold uppercase tracking-widest">Version</th>
+                            <th className="p-4 px-6 font-bold uppercase tracking-widest">Status</th>
+                            <th className="p-4 px-6 font-bold uppercase tracking-widest text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {currentApps.map((app, idx) => {
+                            const hasUpdate = updates[app.name];
+                            return (
+                                <tr key={idx} className="border-b border-white/[0.03] hover:bg-white/[0.05] transition-colors group">
+                                    <td className="p-3 px-6">
+                                        <div className="flex flex-col">
+                                            <span className="text-white/90 font-bold">{app.name}</span>
+                                            <span className="text-[9px] text-muted italic truncate max-w-[200px] group-hover:text-white/40">{app.description}</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-3 px-6">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-cyan-500/80">{app.version}</span>
+                                            {hasUpdate && (
+                                                <div className="flex items-center gap-2 text-emerald-400 animate-pulse">
+                                                    <ArrowRight className="w-3 h-3" />
+                                                    <span className="font-bold underline">{hasUpdate}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="p-3 px-6">
+                                        <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter
+                                            ${app.type === 'system' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 
+                                              app.type === 'python' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 
+                                              app.type === 'node' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
+                                              'bg-white/5 text-muted border border-white/10'}
+                                        `}>
+                                            {app.type}
+                                        </span>
+                                    </td>
+                                    <td className="p-3 px-6 text-right">
+                                        {hasUpdate ? (
+                                            <button
+                                                onClick={() => handleUpdate(app.name, app.type)}
+                                                disabled={updatingPkg === app.name}
+                                                className="px-3 py-1 rounded-lg bg-emerald-500 text-black text-[9px] font-black uppercase tracking-tighter hover:bg-emerald-400 transition-all shadow-[0_0_10px_rgba(16,185,129,0.3)] disabled:opacity-50"
+                                            >
+                                                {updatingPkg === app.name ? 'Updating...' : 'Update'}
+                                            </button>
+                                        ) : (
+                                            <span className="text-[8px] uppercase tracking-widest text-muted/30">Up to date</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+                {currentApps.length === 0 && (
+                    <div className="p-10 text-center opacity-30 flex flex-col items-center gap-2">
+                        <Layers className="w-8 h-8" />
+                        <span className="text-[10px] font-mono uppercase tracking-[0.2em]">
+                            No {activeSubTab === 'main' ? 'system' : activeSubTab === 'thirdParty' ? '3rd party' : 'language package'} applications found
+                        </span>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
@@ -1539,7 +1748,7 @@ const ServerDetail: React.FC = () => {
                                     <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
                                 </svg>
                             ),
-                            content: <Apps />
+                            content: <Apps serverId={server.id} connected={connected} triggerAlert={triggerAlert} />
                         },
                         {
                             id: 'graphics',

@@ -39,6 +39,7 @@ electron_1.contextBridge.exposeInMainWorld("api", {
     moveRemoteItem: (serverId, src, dest) => electron_1.ipcRenderer.invoke('move-remote-item', serverId, src, dest),
     downloadItem: (serverId, remotePath, isDirectory) => electron_1.ipcRenderer.invoke('download-remote-item', serverId, remotePath, isDirectory),
     uploadItems: (serverId, remoteDir) => electron_1.ipcRenderer.invoke('upload-remote-item', serverId, remoteDir),
+    getHealthStatus: (serverId) => electron_1.ipcRenderer.invoke('get-health-status', serverId),
     // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
     tabSpawn: (serverId, tabId, cols, rows) => electron_1.ipcRenderer.invoke('tab-spawn', serverId, tabId, cols, rows),
     tabInput: (tabId, data) => electron_1.ipcRenderer.send('tab-input', tabId, data),

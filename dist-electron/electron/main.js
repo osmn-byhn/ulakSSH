@@ -377,6 +377,19 @@ ipcMain.handle('update-server-app', async (event, id, name, type) => {
         return { success: false, error: error.message };
     }
 });
+ipcMain.handle('get-health-status', async (event, id) => {
+    try {
+        const conn = activeSessions.get(id);
+        if (!conn)
+            throw new Error('No active session for this server');
+        const { getHealthStatus } = await import('../src/main/monitoring/getHealthStatus.js');
+        return await getHealthStatus(conn);
+    }
+    catch (error) {
+        console.error('Failed to get health status:', error);
+        return { error: error.message };
+    }
+});
 // ─── Embedded Terminal Tabs (ssh2 shell stream, no password prompt) ─────────
 // Spawn a new terminal tab: opens a fresh ssh2 connection + shell stream.
 // credentials (password/key) are read from the stored server config automatically.

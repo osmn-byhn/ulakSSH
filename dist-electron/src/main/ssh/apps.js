@@ -50,6 +50,62 @@ export async function getInstalledApps(conn) {
         }
     }
     catch (e) { /* ignore */ }
+    // 5. PHP Composer Global Packages
+    try {
+        const composerOutput = await executeCommand(conn, "composer global show --format=json 2>/dev/null");
+        if (composerOutput) {
+            const composerData = JSON.parse(composerOutput);
+            if (composerData.installed) {
+                composerData.installed.forEach((p) => {
+                    apps.push({
+                        name: p.name,
+                        version: p.version,
+                        type: 'php',
+                        description: p.description || 'PHP Composer Package'
+                    });
+                });
+            }
+        }
+    }
+    catch (e) { /* ignore */ }
+    // 6. Ruby Gems
+    try {
+        const gemOutput = await executeCommand(conn, "gem list --local 2>/dev/null");
+        if (gemOutput) {
+            const gemLines = gemOutput.split('\n');
+            gemLines.forEach(line => {
+                const match = line.match(/^([^\s]+)\s\(([^)]+)\)/);
+                if (match) {
+                    apps.push({
+                        name: match[1],
+                        version: match[2],
+                        type: 'ruby',
+                        description: 'Ruby Gem'
+                    });
+                }
+            });
+        }
+    }
+    catch (e) { /* ignore */ }
+    // 7. Rust Cargo Packages
+    try {
+        const cargoOutput = await executeCommand(conn, "cargo install --list 2>/dev/null");
+        if (cargoOutput) {
+            const cargoLines = cargoOutput.split('\n');
+            cargoLines.forEach(line => {
+                const match = line.match(/^([^\s]+)\sv([^:]+):/);
+                if (match) {
+                    apps.push({
+                        name: match[1],
+                        version: match[2],
+                        type: 'rust',
+                        description: 'Rust Cargo Binary'
+                    });
+                }
+            });
+        }
+    }
+    catch (e) { /* ignore */ }
     return apps.sort((a, b) => a.name.localeCompare(b.name));
 }
 export async function getAppUpdates(conn) {
@@ -105,6 +161,15 @@ export async function updateApp(conn, name, type) {
     }
     else if (type === 'node') {
         cmd = `npm install -g ${name}@latest`;
+    }
+    else if (type === 'php') {
+        cmd = `composer global require ${name}:latest`;
+    }
+    else if (type === 'ruby') {
+        cmd = `gem update ${name}`;
+    }
+    else if (type === 'rust') {
+        cmd = `cargo install ${name}`;
     }
     if (!cmd)
         return false;

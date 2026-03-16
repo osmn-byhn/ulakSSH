@@ -907,10 +907,249 @@ const Configs: React.FC<{ server: Server, triggerAlert: (message: string, type: 
     );
 }
 
-const Health: React.FC = () => {
-    return (
-        <div className="h-full">
+const Health: React.FC<{ serverId: string, connected: boolean }> = ({ serverId, connected }) => {
+    const [status, setStatus] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const api = (window as any).api;
 
+    const fetchHealth = async () => {
+        setLoading(true);
+        try {
+            const result = await api.getHealthStatus(serverId);
+            if (result && !result.error) {
+                setStatus(result);
+            }
+        } catch (err) {
+            console.error("Failed to fetch health:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAction = async (type: string, action: string, target: string) => {
+        const actionId = `${type}-${action}-${target}`;
+        setActionLoading(actionId);
+        try {
+            const result = await api.manageProcessAction(serverId, type, action, target);
+            if (result.success) {
+                // Refresh after action
+                await fetchHealth();
+            } else {
+                alert(`Action failed: ${result.error}`);
+            }
+        } catch (err: any) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    useEffect(() => {
+        if (connected) {
+            fetchHealth();
+        }
+    }, [serverId, connected]);
+
+    if (loading) return (
+        <div className="h-full flex flex-col items-center justify-center p-10">
+            <div className="w-8 h-8 border-2 border-[#06b6d4]/30 border-t-[#06b6d4] rounded-full animate-spin mb-4" />
+            <p className="text-xs font-mono text-muted animate-pulse uppercase tracking-widest">Accessing Terminal Health...</p>
+        </div>
+    );
+
+    if (!status) return (
+        <div className="h-full flex items-center justify-center text-muted font-mono text-xs uppercase tracking-widest">
+            No health data available.
+        </div>
+    );
+
+    const ActionButton = ({ type, action, target, icon: Icon, color }: any) => {
+        const actionId = `${type}-${action}-${target}`;
+        const isLoading = actionLoading === actionId;
+        return (
+            <button
+                onClick={() => handleAction(type, action, target)}
+                disabled={!!actionLoading}
+                className={`p-1.5 rounded-lg border transition-all disabled:opacity-30 ${color} bg-opacity-10 hover:bg-opacity-20`}
+                title={`${action} ${target}`}
+            >
+                {isLoading ? (
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                    <Icon className="w-3 h-3" />
+                )}
+            </button>
+        );
+    };
+
+    const TableHeader = ({ titles }: { titles: string[] }) => (
+        <thead>
+            <tr className="text-muted border-b border-white/10 bg-white/[0.01]">
+                {titles.map(t => (
+                    <th key={t} className="p-3 px-6 font-bold uppercase tracking-widest">{t}</th>
+                ))}
+            </tr>
+        </thead>
+    );
+
+    return (
+        <div className="h-full overflow-y-auto pr-2 scrollbar-thin flex flex-col gap-10 animate-fade-in pb-10">
+            {/* Header */}
+            <div className="flex items-center justify-between glass p-4 rounded-2xl border border-white/10 bg-white/[0.02]">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-2xl bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+                        <Activity className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-black font-mono uppercase tracking-[0.3em] text-white">Health Dashboard</h2>
+                        <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <p className="text-[9px] font-mono text-muted uppercase tracking-widest">Real-time control center</p>
+                        </div>
+                    </div>
+                </div>
+                <button 
+                    onClick={fetchHealth}
+                    className="flex items-center gap-2 px-6 py-2 rounded-2xl bg-white/5 border border-white/10 text-muted hover:text-white hover:bg-white/10 transition-all text-xs font-mono font-bold uppercase tracking-widest group"
+                >
+                    <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+                    Refresh
+                </button>
+            </div>
+
+            {/* Ports Section */}
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3 px-2">
+                    <Database className="w-4 h-4 text-[#06b6d4]" />
+                    <h3 className="text-[11px] font-black font-mono uppercase tracking-widest text-white/90">Software Ports & Processes</h3>
+                </div>
+                <div className="glass border border-white/5 rounded-3xl overflow-hidden bg-white/[0.01]">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left font-mono text-[10px]">
+                            <TableHeader titles={['Port', 'Proto', 'Process', 'PID', 'Status', 'Actions']} />
+                            <tbody>
+                                {Array.isArray(status.ports) && status.ports.map((p: any, idx: number) => (
+                                    <tr key={idx} className="border-b border-white/[0.03] hover:bg-white/[0.05] transition-colors group">
+                                        <td className="p-3 px-6 font-bold text-emerald-400">:{p.port}</td>
+                                        <td className="p-3 px-6 uppercase text-muted/60">{p.protocol}</td>
+                                        <td className="p-3 px-6 font-bold text-white/80">{p.process}</td>
+                                        <td className="p-3 px-6 text-muted font-mono">{p.pid}</td>
+                                        <td className="p-3 px-6">
+                                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[8px] font-black uppercase">Listen</span>
+                                        </td>
+                                        <td className="p-3 px-6">
+                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <ActionButton type="pid" action="kill" target={p.pid} icon={Trash2} color="text-rose-500 border-rose-500/20" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* PM2 Section */}
+            {status.pm2 && (
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-3 px-2">
+                        <Layers className="w-4 h-4 text-[#a855f7]" />
+                        <h3 className="text-[11px] font-black font-mono uppercase tracking-widest text-[#a855f7]">PM2 Ecosystem</h3>
+                    </div>
+                    <div className="glass border border-[#a855f7]/10 rounded-3xl overflow-hidden bg-[#a855f7]/[0.02]">
+                        <table className="w-full text-left font-mono text-[10px]">
+                            <TableHeader titles={['ID', 'Name', 'Status', 'CPU/Mem', 'Uptime', 'Actions']} />
+                            <tbody>
+                                {Array.isArray(status.pm2) && status.pm2.map((p: any, idx: number) => (
+                                    <tr key={idx} className="border-b border-white/[0.03] hover:bg-white/[0.05] transition-colors">
+                                        <td className="p-3 px-6 text-muted">{p.id}</td>
+                                        <td className="p-3 px-6 font-bold text-white">{p.name}</td>
+                                        <td className="p-3 px-6">
+                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${p.status === 'online' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                                {p.status}
+                                            </span>
+                                        </td>
+                                        <td className="p-3 px-6 text-muted/60">{p.cpu} / {p.mem}</td>
+                                        <td className="p-3 px-6 text-[9px] text-muted/40">{p.uptime.split('T')[0]}</td>
+                                        <td className="p-3 px-6">
+                                            <div className="flex items-center gap-2">
+                                                {p.status === 'online' ? (
+                                                    <ActionButton type="pm2" action="stop" target={p.id} icon={Trash2} color="text-rose-500 border-rose-500/20" />
+                                                ) : (
+                                                    <ActionButton type="pm2" action="start" target={p.id} icon={Plus} color="text-emerald-500 border-emerald-500/20" />
+                                                )}
+                                                <ActionButton type="pm2" action="restart" target={p.id} icon={RefreshCw} color="text-purple-400 border-purple-500/20" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Docker Section */}
+            {status.docker && (
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-3 px-2">
+                        <Database className="w-4 h-4 text-[#06b6d4]" />
+                        <h3 className="text-[11px] font-black font-mono uppercase tracking-widest text-[#06b6d4]">Docker Containers</h3>
+                    </div>
+                    <div className="glass border border-[#06b6d4]/10 rounded-3xl overflow-hidden bg-[#06b6d4]/[0.02]">
+                        {Array.isArray(status.docker) && status.docker.length > 0 ? (
+                            <table className="w-full text-left font-mono text-[10px]">
+                                <TableHeader titles={['Name', 'Image', 'Status', 'Ports', 'Actions']} />
+                                <tbody>
+                                    {status.docker.map((p: any, idx: number) => (
+                                        <tr key={idx} className="border-b border-white/[0.03] hover:bg-white/[0.05] transition-colors">
+                                            <td className="p-3 px-6 font-bold text-white">{p.name}</td>
+                                            <td className="p-3 px-6 text-muted/60 max-w-[150px] truncate">{p.image}</td>
+                                            <td className="p-3 px-6">
+                                                <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${p.status.includes('Up') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                                    {p.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 px-6 text-[9px] text-muted/40">{p.ports}</td>
+                                            <td className="p-3 px-6">
+                                                <div className="flex items-center gap-2">
+                                                    {p.status.includes('Up') ? (
+                                                        <ActionButton type="docker" action="stop" target={p.name} icon={Trash2} color="text-rose-500 border-rose-500/20" />
+                                                    ) : (
+                                                        <ActionButton type="docker" action="start" target={p.name} icon={Plus} color="text-emerald-500 border-emerald-500/20" />
+                                                    )}
+                                                    <ActionButton type="docker" action="restart" target={p.name} icon={RefreshCw} color="text-cyan-400 border-cyan-500/20" />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className="p-10 text-center text-muted font-mono text-xs uppercase tracking-[0.2em] animate-pulse">
+                                No containers detected on this server
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* OS Logs */}
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3 px-2">
+                    <Activity className="w-4 h-4 text-rose-500" />
+                    <h3 className="text-[11px] font-black font-mono uppercase tracking-widest text-rose-500">System Runtime Logs</h3>
+                </div>
+                <div className="glass border border-rose-500/20 rounded-3xl p-5 bg-black/60 shadow-[inset_0_0_30px_rgba(0,0,0,0.4)]">
+                    <div className="max-h-[300px] overflow-y-auto scrollbar-thin">
+                        <pre className="text-[10px] font-mono text-muted/80 leading-relaxed whitespace-pre-wrap">
+                            {status.osLogs || "Waiting for system data..."}
+                        </pre>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
@@ -992,7 +1231,7 @@ const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg:
 
     const mainApps = apps.filter(a => a.type === 'system');
     const thirdPartyApps = apps.filter(a => a.type === 'other');
-    const packageApps = apps.filter(a => a.type === 'python' || a.type === 'node');
+    const packageApps = apps.filter(a => ['python', 'node', 'php', 'ruby', 'rust'].includes(a.type));
     
     const currentApps = activeSubTab === 'main' ? mainApps : 
                         activeSubTab === 'thirdParty' ? thirdPartyApps : packageApps;
@@ -1078,6 +1317,9 @@ const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg:
                                             ${app.type === 'system' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 
                                               app.type === 'python' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 
                                               app.type === 'node' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
+                                              app.type === 'php' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 
+                                              app.type === 'ruby' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 
+                                              app.type === 'rust' ? 'bg-orange-600/10 text-orange-500 border border-orange-600/20' : 
                                               'bg-white/5 text-muted border border-white/10'}
                                         `}>
                                             {app.type}
@@ -1738,7 +1980,7 @@ const ServerDetail: React.FC = () => {
                                     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                                 </svg>
                             ),
-                            content: <Health />
+                            content: <Health serverId={server.id} connected={connected} />
                         },
                         {
                             id: 'apps',

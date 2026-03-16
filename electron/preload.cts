@@ -38,6 +38,9 @@ contextBridge.exposeInMainWorld("api", {
   moveRemoteItem: (serverId: string, src: string, dest: string) => ipcRenderer.invoke('move-remote-item', serverId, src, dest),
   downloadItem: (serverId: string, remotePath: string, isDirectory: boolean) => ipcRenderer.invoke('download-remote-item', serverId, remotePath, isDirectory),
   uploadItems: (serverId: string, remoteDir: string) => ipcRenderer.invoke('upload-remote-item', serverId, remoteDir),
+  getHealthStatus: (serverId: string) => ipcRenderer.invoke('get-health-status', serverId),
+  manageProcessAction: (serverId: string, type: string, action: string, target: string) => 
+    ipcRenderer.invoke('manage-process-action', serverId, type, action, target),
 
   // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
   tabSpawn: (serverId: string, tabId: string, cols: number, rows: number) =>

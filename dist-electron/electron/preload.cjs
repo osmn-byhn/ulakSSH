@@ -40,6 +40,17 @@ electron_1.contextBridge.exposeInMainWorld("api", {
     downloadItem: (serverId, remotePath, isDirectory) => electron_1.ipcRenderer.invoke('download-remote-item', serverId, remotePath, isDirectory),
     uploadItems: (serverId, remoteDir) => electron_1.ipcRenderer.invoke('upload-remote-item', serverId, remoteDir),
     getHealthStatus: (serverId) => electron_1.ipcRenderer.invoke('get-health-status', serverId),
+    manageProcessAction: (serverId, type, action, target) => electron_1.ipcRenderer.invoke('manage-process-action', serverId, type, action, target),
+    getProcessLogs: (serverId, type, target) => electron_1.ipcRenderer.invoke('get-process-logs', serverId, type, target),
+    // ─── Real-time Log Streaming ─────────────
+    startLogStream: (serverId, type, target, tabId) => electron_1.ipcRenderer.invoke('start-process-log-stream', serverId, type, target, tabId),
+    stopLogStream: (tabId) => electron_1.ipcRenderer.invoke('stop-process-log-stream', tabId),
+    onLogOutput: (tabId, callback) => {
+        const channel = `log-output-${tabId}`;
+        electron_1.ipcRenderer.removeAllListeners(channel);
+        electron_1.ipcRenderer.on(channel, (_event, data) => callback(data));
+        return () => electron_1.ipcRenderer.removeAllListeners(channel);
+    },
     // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
     tabSpawn: (serverId, tabId, cols, rows) => electron_1.ipcRenderer.invoke('tab-spawn', serverId, tabId, cols, rows),
     tabInput: (tabId, data) => electron_1.ipcRenderer.send('tab-input', tabId, data),

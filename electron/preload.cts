@@ -41,6 +41,20 @@ contextBridge.exposeInMainWorld("api", {
   getHealthStatus: (serverId: string) => ipcRenderer.invoke('get-health-status', serverId),
   manageProcessAction: (serverId: string, type: string, action: string, target: string) => 
     ipcRenderer.invoke('manage-process-action', serverId, type, action, target),
+  getProcessLogs: (serverId: string, type: string, target: string) =>
+    ipcRenderer.invoke('get-process-logs', serverId, type, target),
+
+  // ─── Real-time Log Streaming ─────────────
+  startLogStream: (serverId: string, type: string, target: string, tabId: string) =>
+    ipcRenderer.invoke('start-process-log-stream', serverId, type, target, tabId),
+  stopLogStream: (tabId: string) =>
+    ipcRenderer.invoke('stop-process-log-stream', tabId),
+  onLogOutput: (tabId: string, callback: (data: string) => void) => {
+    const channel = `log-output-${tabId}`;
+    ipcRenderer.removeAllListeners(channel);
+    ipcRenderer.on(channel, (_event: any, data: string) => callback(data));
+    return () => ipcRenderer.removeAllListeners(channel);
+  },
 
   // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────
   tabSpawn: (serverId: string, tabId: string, cols: number, rows: number) =>

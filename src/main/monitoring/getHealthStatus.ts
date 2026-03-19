@@ -26,8 +26,52 @@ export interface HealthStatus {
     }>;
     forever?: Array<{
         id: string;
-        script: string;
+        uid?: string;
+        command?: string;
+        script?: string;
+        forever_pid?: string;
+        pid?: string;
+        logfile?: string;
         uptime: string;
+        port?: string;
+    }>;
+    systemd?: Array<{
+        name: string;
+        status: string;
+        description: string;
+    }>;
+    supervisor?: Array<{
+        name: string;
+        status: string;
+        pid: string;
+        uptime: string;
+    }>;
+    dockerCompose?: Array<{
+        service: string;
+        status: string;
+        id: string;
+        ports: string;
+    }>;
+    circus?: Array<{
+        name: string;
+        status: string;
+    }>;
+    oxmgr?: Array<{
+        id: string;
+        name: string;
+        status: string;
+        cpu: string;
+        mem: string;
+    }>;
+    strongPm?: Array<{
+        id: string;
+        name: string;
+        status: string;
+    }>;
+    pmc?: Array<{
+        id: string;
+        name: string;
+        status: string;
     }>;
     osLogs: string;
 }
@@ -37,6 +81,14 @@ export const getHealthStatus = (conn: Client, password?: string): Promise<Health
     const sudo = (cmd: string) => {
         if (!password) return cmd;
         return `echo "${password}" | sudo -S ${cmd}`;
+    };
+
+    const extractPort = (cmd: string): string => {
+        const portMatch = cmd.match(/--port[=\s](\d+)/) || 
+                         cmd.match(/:(\d+)\s+/) || 
+                         cmd.match(/PORT=(\d+)/) || 
+                         cmd.match(/-p\s+(\d+)/);
+        return portMatch ? portMatch[1] : '';
     };
 
     return new Promise((resolve, reject) => {
@@ -94,6 +146,60 @@ export const getHealthStatus = (conn: Client, password?: string): Promise<Health
                 echo "FOREVER_END"
             fi
 
+            # systemd
+            if command -v systemctl >/dev/null 2>&1; then
+                echo "SYSTEMD_START"
+                ${sudo("systemctl list-units --type=service --state=running --no-pager --no-legend")} 2>/dev/null
+                echo "SYSTEMD_END"
+            fi
+
+            # Supervisor
+            if command -v supervisorctl >/dev/null 2>&1; then
+                echo "SUPERVISOR_START"
+                ${sudo("supervisorctl status")} 2>/dev/null
+                echo "SUPERVISOR_END"
+            fi
+
+            # Docker Compose
+            if command -v docker >/dev/null 2>&1; then
+                echo "DOCKER_COMPOSE_START"
+                # Check for both 'docker compose' and 'docker-compose'
+                if docker compose version >/dev/null 2>&1; then
+                    ${sudo("docker compose ps --format '{{.Service}}|{{.Status}}|{{.ID}}|{{.Ports}}'")} 2>/dev/null
+                elif command -v docker-compose >/dev/null 2>&1; then
+                    ${sudo("docker-compose ps --format '{{.Service}}|{{.Status}}|{{.ID}}|{{.Ports}}'")} 2>/dev/null
+                fi
+                echo "DOCKER_COMPOSE_END"
+            fi
+
+            # Circus
+            if command -v circusctl >/dev/null 2>&1; then
+                echo "CIRCUS_START"
+                ${sudo("circusctl status")} 2>/dev/null
+                echo "CIRCUS_END"
+            fi
+
+            # Oxmgr
+            if command -v oxmgr >/dev/null 2>&1; then
+                echo "OXMGR_START"
+                ${sudo("oxmgr ls")} 2>/dev/null
+                echo "OXMGR_END"
+            fi
+
+            # Strong-PM
+            if command -v slc >/dev/null 2>&1; then
+                echo "STRONGPM_START"
+                ${sudo("slc pm status")} 2>/dev/null
+                echo "STRONGPM_END"
+            fi
+
+            # pmc
+            if command -v pmc >/dev/null 2>&1; then
+                echo "PMC_START"
+                ${sudo("pmc list")} 2>/dev/null
+                echo "PMC_END"
+            fi
+
             # OS Logs
             echo "OS_LOGS_START"
             if command -v journalctl >/dev/null 2>&1; then
@@ -115,7 +221,14 @@ export const getHealthStatus = (conn: Client, password?: string): Promise<Health
                     osLogs: '',
                     pm2: [],
                     docker: [],
-                    forever: []
+                    forever: [],
+                    systemd: [],
+                    supervisor: [],
+                    dockerCompose: [],
+                    circus: [],
+                    oxmgr: [],
+                    strongPm: [],
+                    pmc: []
                 };
 
                 const lines = output.split('\n');
@@ -155,18 +268,119 @@ export const getHealthStatus = (conn: Client, password?: string): Promise<Health
                     }
                     if (trimmed === 'FOREVER_START') { currentSection = 'forever'; sectionContent = ''; continue; }
                     if (trimmed === 'FOREVER_END') { 
-                        // Forever doesn't have a great JSON output, parsing text basics
-                        status.forever = sectionContent.trim().split('\n').filter(l => l.includes('[')).map(l => {
-                            const parts = l.split(/\s+/);
-                            // [0] script.js (pid 123) uptime 0:0:0:1
-                            return { id: parts[1], script: parts[2], uptime: parts[parts.length-1] };
-                        });
+                        const foreverLines = sectionContent.trim().split('\n');
+                        const processes: any[] = [];
+                        let currentProc: any = null;
+
+                        for (const l of foreverLines) {
+                            const trimmedLine = l.trim();
+                            if (!trimmedLine) continue;
+
+                            const indexMatch = trimmedLine.match(/\[(\d+)\]/);
+                            if (indexMatch) {
+                                if (currentProc) processes.push(currentProc);
+                                const parts = trimmedLine.split(/\s+/).filter(Boolean);
+                                // data: [0] master-api /usr/bin/node index.js ...
+                                const idxInParts = parts.findIndex(p => p.includes(`[${indexMatch[1]}]`));
+                                currentProc = {
+                                    id: indexMatch[1],
+                                    uid: parts[idxInParts + 1] || '?',
+                                    command: parts[idxInParts + 2] || '?',
+                                    script: parts.slice(idxInParts + 3).join(' '),
+                                    uptime: '?', // Will be updated if on next line
+                                    port: extractPort(trimmedLine)
+                                };
+                            } else if (currentProc && !trimmedLine.toLowerCase().includes('info:') && !trimmedLine.toLowerCase().includes('data:')) {
+                                // Try to extract PID, logfile, uptime from wrapped line
+                                const parts = trimmedLine.split(/\s+/).filter(Boolean);
+                                if (parts.length >= 4) {
+                                    currentProc.forever_pid = parts[0];
+                                    currentProc.pid = parts[1];
+                                    currentProc.logfile = parts[2];
+                                    currentProc.uptime = parts.slice(3).join(' ');
+                                } else if (parts.length === 1 && trimmedLine.includes(':')) {
+                                    // Sometimes uptime is just on its own or logfile
+                                    currentProc.uptime = trimmedLine;
+                                }
+                            } else if (currentProc && trimmedLine.toLowerCase().includes('uptime')) {
+                                // If uptime is explicitly on the same line but further down
+                                const uptimeMatch = trimmedLine.match(/uptime\s+(.+)$/i);
+                                if (uptimeMatch) currentProc.uptime = uptimeMatch[1];
+                            }
+                        }
+                        if (currentProc) processes.push(currentProc);
+                        status.forever = processes;
                         currentSection = ''; sectionContent = ''; continue; 
+                    }
+                    if (trimmed === 'SYSTEMD_START') { currentSection = 'systemd'; sectionContent = ''; continue; }
+                    if (trimmed === 'SYSTEMD_END') {
+                        status.systemd = sectionContent.trim().split('\n').filter(Boolean).map(l => {
+                            const parts = l.trim().split(/\s+/);
+                            return { name: parts[0], status: parts[3], description: parts.slice(4).join(' ') };
+                        });
+                        currentSection = ''; sectionContent = ''; continue;
+                    }
+                    if (trimmed === 'SUPERVISOR_START') { currentSection = 'supervisor'; sectionContent = ''; continue; }
+                    if (trimmed === 'SUPERVISOR_END') {
+                        status.supervisor = sectionContent.trim().split('\n').filter(Boolean).map(l => {
+                            const parts = l.trim().split(/\s+/);
+                            // name RUNNING pid 123, uptime 0:01:02
+                            const pidMatch = l.match(/pid (\d+)/);
+                            const uptimeMatch = l.match(/uptime (.*)/);
+                            return { 
+                                name: parts[0], 
+                                status: parts[1], 
+                                pid: pidMatch ? pidMatch[1] : '', 
+                                uptime: uptimeMatch ? uptimeMatch[1] : '' 
+                            };
+                        });
+                        currentSection = ''; sectionContent = ''; continue;
+                    }
+                    if (trimmed === 'DOCKER_COMPOSE_START') { currentSection = 'dockerCompose'; sectionContent = ''; continue; }
+                    if (trimmed === 'DOCKER_COMPOSE_END') {
+                        status.dockerCompose = sectionContent.trim().split('\n').filter(Boolean).map(l => {
+                            const [service, stat, id, ports] = l.split('|');
+                            return { service: service || '', status: stat || '', id: id || '', ports: ports || '' };
+                        });
+                        currentSection = ''; sectionContent = ''; continue;
+                    }
+                    if (trimmed === 'CIRCUS_START') { currentSection = 'circus'; sectionContent = ''; continue; }
+                    if (trimmed === 'CIRCUS_END') {
+                        status.circus = sectionContent.trim().split('\n').filter(Boolean).map(l => {
+                            const [name, stat] = l.split(':').map(s => s.trim());
+                            return { name, status: stat };
+                        });
+                        currentSection = ''; sectionContent = ''; continue;
+                    }
+                    if (trimmed === 'OXMGR_START') { currentSection = 'oxmgr'; sectionContent = ''; continue; }
+                    if (trimmed === 'OXMGR_END') {
+                        // Assuming oxmgr ls output is similar to PM2 or simple list
+                        status.oxmgr = sectionContent.trim().split('\n').filter(Boolean).map(l => {
+                            const parts = l.trim().split(/\s+/);
+                            return { id: parts[0], name: parts[1], status: parts[2], cpu: parts[3] || '0%', mem: parts[4] || '0MB' };
+                        });
+                        currentSection = ''; sectionContent = ''; continue;
+                    }
+                    if (trimmed === 'STRONGPM_START') { currentSection = 'strongPm'; sectionContent = ''; continue; }
+                    if (trimmed === 'STRONGPM_END') {
+                        status.strongPm = sectionContent.trim().split('\n').filter(Boolean).map(l => {
+                            const parts = l.trim().split(/\s+/);
+                            return { id: parts[0], name: parts[1], status: parts[2] };
+                        });
+                        currentSection = ''; sectionContent = ''; continue;
+                    }
+                    if (trimmed === 'PMC_START') { currentSection = 'pmc'; sectionContent = ''; continue; }
+                    if (trimmed === 'PMC_END') {
+                        status.pmc = sectionContent.trim().split('\n').filter(Boolean).map(l => {
+                            const parts = l.trim().split(/\s+/);
+                            return { id: parts[0], name: parts[1], status: parts[2] };
+                        });
+                        currentSection = ''; sectionContent = ''; continue;
                     }
                     if (trimmed === 'OS_LOGS_START') { currentSection = 'oslogs'; sectionContent = ''; continue; }
                     if (trimmed === 'OS_LOGS_END') { status.osLogs = sectionContent.trim(); currentSection = ''; continue; }
 
-                    if (currentSection === 'oslogs' || currentSection === 'pm2' || currentSection === 'docker' || currentSection === 'forever') {
+                    if (['oslogs', 'pm2', 'docker', 'forever', 'systemd', 'supervisor', 'dockerCompose', 'circus', 'oxmgr', 'strongPm', 'pmc'].includes(currentSection)) {
                         sectionContent += line + '\n';
                     } else if (currentSection === 'ports') {
                         const parts = trimmed.split('|');

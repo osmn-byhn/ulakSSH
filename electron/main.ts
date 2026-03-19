@@ -9,6 +9,7 @@ const activeSessions = new Map<string, { conn: any; password?: string }>();
 const activeShells = new Map<string, any>();
 // ssh2 shell streams for embedded terminal tabs: tabId -> { stream, conn }
 const activeTabShells = new Map<string, { stream: any; conn: any }>();
+const activeLogStreams = new Map<string, { stream: any; serverId: string }>();
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -412,7 +413,6 @@ ipcMain.handle('check-server-app-updates', async (event, id) => {
       return { error: error.message };
     }
   });
-
   ipcMain.handle('manage-process-action', async (event, id, type: any, action: any, target: string) => {
     try {
       const session = activeSessions.get(id);
@@ -423,6 +423,19 @@ ipcMain.handle('check-server-app-updates', async (event, id) => {
     } catch (error: any) {
       console.error('Failed to manage process:', error);
       return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('get-process-logs', async (event, id, type: any, target: string) => {
+    try {
+      const session = activeSessions.get(id);
+      if (!session) throw new Error('No active session for this server');
+  
+      const { getProcessLogs } = await import('../src/main/monitoring/getProcessLogs.js');
+      return await getProcessLogs(session.conn, type, target, session.password);
+    } catch (error: any) {
+      console.error('Failed to get process logs:', error);
+      return { error: error.message };
     }
   });
 
@@ -503,6 +516,46 @@ ipcMain.on('tab-kill', (_event, tabId: string) => {
     try { tab.conn.end(); } catch (_) { }
     activeTabShells.delete(tabId);
   }
+});
+
+// ─── Real-time Log Streaming ─────────────
+ipcMain.handle('start-process-log-stream', async (event, serverId, type, target, tabId) => {
+  try {
+    const session = activeSessions.get(serverId);
+    if (!session) throw new Error('No active session');
+
+    const { getProcessLogStream } = await import('../src/main/monitoring/getProcessLogStream.js');
+    const stream = await getProcessLogStream(session.conn, type, target, session.password);
+
+    activeLogStreams.set(tabId, { stream, serverId });
+
+    stream.on('data', (data: Buffer) => {
+      event.sender.send(`log-output-${tabId}`, data.toString('utf8'));
+    });
+
+    stream.stderr.on('data', (data: Buffer) => {
+      event.sender.send(`log-output-${tabId}`, data.toString('utf8'));
+    });
+
+    stream.on('close', () => {
+      activeLogStreams.delete(tabId);
+      event.sender.send(`log-exit-${tabId}`);
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Failed to start log stream:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('stop-process-log-stream', async (event, tabId) => {
+  const logInfo = activeLogStreams.get(tabId);
+  if (logInfo && logInfo.stream) {
+    try { logInfo.stream.end(); } catch (_) { }
+    activeLogStreams.delete(tabId);
+  }
+  return { success: true };
 });
 
 ipcMain.handle('pick-file', async (event) => {

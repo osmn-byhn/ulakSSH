@@ -1,35 +1,25 @@
-import { Client } from 'ssh2';
-
-export type ProcessType = 'pm2' | 'docker' | 'forever' | 'pid';
-export type ProcessAction = 'start' | 'stop' | 'restart' | 'kill' | 'delete';
-
-export const manageProcess = (
-    conn: Client,
-    type: ProcessType,
-    action: ProcessAction,
-    target: string,
-    password?: string
-): Promise<{ success: boolean; error?: string }> => {
+export const manageProcess = (conn, type, action, target, password) => {
     return new Promise((resolve) => {
         let cmd = '';
-
-        const sudo = (c: string) => {
-            if (!password) return c;
+        const sudo = (c) => {
+            if (!password)
+                return c;
             return `echo "${password}" | sudo -S ${c}`;
         };
-
         switch (type) {
             case 'pm2':
                 if (action === 'delete') {
                     cmd = sudo(`pm2 delete ${target}`);
-                } else {
+                }
+                else {
                     cmd = sudo(`pm2 ${action} ${target}`);
                 }
                 break;
             case 'docker':
                 if (action === 'delete') {
                     cmd = sudo(`docker rm -f ${target}`);
-                } else {
+                }
+                else {
                     cmd = sudo(`docker ${action} ${target}`);
                 }
                 break;
@@ -43,20 +33,19 @@ export const manageProcess = (
                 }
                 break;
         }
-
         if (!cmd) {
             return resolve({ success: false, error: 'Unsupported process type or action' });
         }
-
         conn.exec(cmd, (err, stream) => {
-            if (err) return resolve({ success: false, error: err.message });
-
+            if (err)
+                return resolve({ success: false, error: err.message });
             let errorOutput = '';
             stream.stderr.on('data', (data) => errorOutput += data.toString());
-            stream.on('close', (code: number | null) => {
+            stream.on('close', (code) => {
                 if (code === 0) {
                     resolve({ success: true });
-                } else {
+                }
+                else {
                     resolve({ success: false, error: errorOutput.trim() || `Exit code: ${code}` });
                 }
             });

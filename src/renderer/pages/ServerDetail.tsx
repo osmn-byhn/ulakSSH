@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Alert from "../components/ui/Alert";
 import NeofetchInfo from "../components/ui/NeofetchInfo";
@@ -23,8 +23,16 @@ import {
     Download, 
     Upload,
     RefreshCw,
-    ArrowRight
+    ArrowRight,
+    Terminal,
+    X,
+    Minimize2,
+    Maximize2,
+    Search,
+    ChevronUp,
+    ChevronDown
 } from 'lucide-react';
+import HealthDashboard from "../components/health/HealthDashboard";
 import type { AlertType } from "../components/ui/Alert";
 import type { Server } from "../../shared/server";
 
@@ -907,12 +915,291 @@ const Configs: React.FC<{ server: Server, triggerAlert: (message: string, type: 
     );
 }
 
+interface LogTab {
+    id: string;
+    title: string;
+    type: string;
+    target: string;
+    logs: string;
+    loading: boolean;
+    searchTerm: string;
+    activeMatchIndex: number;
+}
+
+const MultiTabLogViewer: React.FC<{
+    tabs: LogTab[];
+    activeTabId: string | null;
+    onCloseTab: (id: string) => void;
+    onSelectTab: (id: string | null) => void;
+    onRefreshTab: (id: string) => void;
+    onClearLogs: (id: string) => void;
+    onSearch: (id: string, term: string) => void;
+    onNavigateSearch: (id: string, direction: 'up' | 'down') => void;
+}> = ({ tabs, activeTabId, onCloseTab, onSelectTab, onRefreshTab, onClearLogs, onSearch, onNavigateSearch }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const activeMatchRef = useRef<HTMLSpanElement>(null);
+    
+    const activeTab = tabs.find((t: LogTab) => t.id === activeTabId) || tabs[0];
+
+    // Scroll active match into view
+    useEffect(() => {
+        if (activeMatchRef.current) {
+            activeMatchRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [activeTab?.activeMatchIndex, activeTab?.searchTerm]);
+
+    if (tabs.length === 0) return null;
+
+    return (
+        <div className={`fixed bottom-0 left-0 right-0 z-[100] transition-all duration-300 ease-in-out ${isExpanded ? 'h-[60vh]' : 'h-[300px]'} flex flex-col glass border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] bg-black/80 backdrop-blur-xl`}>
+            {/* Header / Tabs */}
+            <div className="flex items-center justify-between px-4 h-11 border-b border-white/5 bg-white/5">
+                <div className="flex items-center gap-1 overflow-x-auto scrollbar-none flex-1">
+                    {tabs.map((tab: LogTab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => onSelectTab(tab.id)}
+                            className={`flex items-center gap-2 px-4 h-8 rounded-t-xl text-[10px] font-mono font-black uppercase tracking-widest transition-all ${
+                                activeTabId === tab.id 
+                                    ? 'bg-[#06b6d4] text-black shadow-[0_0_20px_rgba(6,182,212,0.3)]' 
+                                    : 'text-muted hover:text-white hover:bg-white/5'
+                            }`}
+                        >
+                            <Terminal className="w-3 h-3" />
+                            <span className="max-w-[120px] truncate">{tab.title}</span>
+                            <div 
+                                onClick={(e) => { e.stopPropagation(); onCloseTab(tab.id); }}
+                                className="p-0.5 hover:bg-black/20 rounded-md transition-all"
+                            >
+                                <X className="w-2.5 h-2.5" />
+                            </div>
+                        </button>
+                    ))}
+                </div>
+                <div className="flex items-center gap-3 pl-4 border-l border-white/5">
+                    <div className="relative group/search">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted group-focus-within/search:text-[#06b6d4] transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="Search logs (3+ chars)..."
+                            value={activeTab.searchTerm}
+                            onChange={(e) => onSearch(activeTab.id, e.target.value)}
+                            className="w-48 h-8 pl-8 pr-4 rounded-xl bg-white/5 border border-white/10 text-[10px] font-mono focus:outline-none focus:border-[#06b6d4]/50 focus:bg-white/10 transition-all placeholder:text-muted/50"
+                        />
+                        {activeTab.searchTerm && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                <button 
+                                    onClick={() => onNavigateSearch(activeTab.id, 'up')}
+                                    className="p-1 hover:bg-white/10 rounded-md transition-all text-muted hover:text-white"
+                                >
+                                    <ChevronUp className="w-2.5 h-2.5" />
+                                </button>
+                                <button 
+                                    onClick={() => onNavigateSearch(activeTab.id, 'down')}
+                                    className="p-1 hover:bg-white/10 rounded-md transition-all text-muted hover:text-white"
+                                >
+                                    <ChevronDown className="w-2.5 h-2.5" />
+                                </button>
+                                <button 
+                                    onClick={() => onSearch(activeTab.id, '')}
+                                    className="p-1 hover:bg-white/10 rounded-md transition-all text-muted hover:text-white"
+                                >
+                                    <X className="w-2.5 h-2.5" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <button onClick={() => onRefreshTab(activeTab.id)} title="Refresh Logs" className="p-1.5 text-muted hover:text-[#06b6d4] transition-all">
+                        <RefreshCw className={`w-3.5 h-3.5 ${activeTab.loading ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button onClick={() => setIsExpanded(!isExpanded)} title={isExpanded ? "Minimize" : "Maximize"} className="p-1.5 text-muted hover:text-white transition-all">
+                        {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                    </button>
+                </div>
+            </div>
+
+            {/* Log Content */}
+            <div ref={scrollRef} className="flex-1 overflow-auto p-6 font-mono text-[11px] leading-relaxed scrollbar-thin bg-black/20">
+                {activeTab.loading ? (
+                    <div className="h-full flex flex-col items-center justify-center gap-3">
+                        <div className="w-6 h-6 border-2 border-[#06b6d4]/30 border-t-[#06b6d4] rounded-full animate-spin" />
+                        <span className="text-muted text-[10px] font-mono uppercase tracking-widest animate-pulse">Streaming remote logs...</span>
+                    </div>
+                ) : activeTab.logs ? (
+                    <div className="relative group">
+                        <button 
+                            onClick={() => onClearLogs(activeTab.id)}
+                            className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 bg-white/5 hover:bg-rose-500/20 text-muted hover:text-rose-500 rounded-xl transition-all border border-white/10"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        <pre className="whitespace-pre-wrap break-all text-white/80 selection:bg-[#06b6d4]/30">
+                            {(() => {
+                                if (activeTab.searchTerm.length < 3) return activeTab.logs;
+                                
+                                let matchCounter = 0;
+                                const lines = activeTab.logs.split('\n');
+                                const filteredLines = lines.filter((line: string) => 
+                                    line.toLowerCase().includes(activeTab.searchTerm.toLowerCase())
+                                );
+                                
+                                if (filteredLines.length === 0) {
+                                    return <span className="text-muted/30 italic">No matches found for "{activeTab.searchTerm}"</span>;
+                                }
+
+                                return lines.map((line: string, idx: number) => {
+                                    const parts = line.split(new RegExp(`(${activeTab.searchTerm})`, 'gi'));
+                                    return (
+                                        <div key={idx}>
+                                            {parts.map((part: string, i: number) => {
+                                                if (part.toLowerCase() === activeTab.searchTerm.toLowerCase()) {
+                                                    matchCounter++;
+                                                    const isCurrent = (matchCounter - 1) === activeTab.activeMatchIndex;
+                                                    return (
+                                                        <mark 
+                                                            key={i} 
+                                                            ref={isCurrent ? activeMatchRef : null}
+                                                            className={`px-0.5 rounded-sm font-bold transition-all ${
+                                                                isCurrent 
+                                                                    ? 'bg-[#06b6d4] text-black shadow-[0_0_15px_#06b6d4] ring-1 ring-white/50' 
+                                                                    : 'bg-amber-400/30 text-amber-200'
+                                                            }`}
+                                                        >
+                                                            {part}
+                                                        </mark>
+                                                    );
+                                                }
+                                                return part;
+                                            })}
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </pre>
+                    </div>
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center gap-2 opacity-20">
+                        <FileCode className="w-10 h-10" />
+                        <p className="text-[10px] font-mono uppercase tracking-[0.3em]">No log stream detected</p>
+                    </div>
+                )}
+            </div>
+            
+            {/* Footer Status */}
+            <div className="h-6 px-4 flex items-center justify-between bg-white/[0.02] border-t border-white/5">
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab.loading ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
+                        <span className="text-[8px] font-mono text-muted uppercase tracking-widest">
+                            {activeTab.loading ? 'Synchronizing...' : 'Live Stream'}
+                        </span>
+                    </div>
+                    <span className="text-[8px] font-mono text-white/20">|</span>
+                    <span className="text-[8px] font-mono text-muted uppercase tracking-widest">
+                        {activeTab.type.toUpperCase()}: {activeTab.target}
+                    </span>
+                </div>
+                <span className="text-[8px] font-mono text-white/10 uppercase tracking-[0.2em]">secure edge log pipeline</span>
+            </div>
+        </div>
+    );
+};
+
 const Health: React.FC<{ serverId: string, connected: boolean }> = ({ serverId, connected }) => {
     const [status, setStatus] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    
+    // Log Tabs State
+    const [logTabs, setLogTabs] = useState<LogTab[]>([]);
+    const [activeLogTabId, setActiveLogTabId] = useState<string | null>(null);
+
     const api = (window as any).api;
 
+    const fetchLogs = async (type: string, target: string, title: string) => {
+        const tabId = `${type}-${target}`;
+        
+        // Check if tab already exists
+        const existingTab = logTabs.find(t => t.id === tabId);
+        if (existingTab) {
+            setActiveLogTabId(tabId);
+            // Optionally refresh it
+            // handleRefreshTab(tabId);
+            return;
+        }
+
+        // Add new tab
+        const newTab: LogTab = { id: tabId, title, type, target, logs: '', loading: true, searchTerm: '', activeMatchIndex: 0 };
+        setLogTabs(prev => [...prev, newTab]);
+        setActiveLogTabId(tabId);
+
+        try {
+            // Start streaming
+            await api.startLogStream(serverId, type, target, tabId);
+            
+            // Set up listener
+            api.onLogOutput(tabId, (data: string) => {
+                setLogTabs(prev => prev.map(t => 
+                    t.id === tabId ? { ...t, logs: t.logs + data, loading: false } : t
+                ));
+            });
+        } catch (err: any) {
+            setLogTabs(prev => prev.map(t => t.id === tabId ? { ...t, logs: 'Error starting stream: ' + err.message, loading: false } : t));
+        }
+    };
+
+    const handleCloseTab = (id: string) => {
+        api.stopLogStream(id);
+        setLogTabs(prev => {
+            const newTabs = prev.filter(t => t.id !== id);
+            if (activeLogTabId === id) {
+                setActiveLogTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null);
+            }
+            return newTabs;
+        });
+    };
+
+    const handleRefreshTab = async (id: string) => {
+        const tab = logTabs.find(t => t.id === id);
+        if (!tab) return;
+
+        // Restart stream to refresh logs (re-tail last 100 lines)
+        setLogTabs(prev => prev.map(t => t.id === id ? { ...t, loading: true, logs: '' } : t));
+        try {
+            await api.stopLogStream(id);
+            await api.startLogStream(serverId, tab.type, tab.target, id);
+        } catch (err: any) {
+            setLogTabs(prev => prev.map(t => t.id === id ? { ...t, logs: 'Error refreshing stream: ' + err.message, loading: false } : t));
+        }
+    };
+
+    const handleClearLogs = (id: string) => {
+        setLogTabs(prev => prev.map(t => t.id === id ? { ...t, logs: '' } : t));
+    };
+
+    const handleSearchLogs = (id: string, term: string) => {
+        setLogTabs(prev => prev.map(t => t.id === id ? { ...t, searchTerm: term, activeMatchIndex: 0 } : t));
+    };
+
+    const handleNavigateSearch = (id: string, direction: 'up' | 'down') => {
+        setLogTabs(prev => prev.map(t => {
+            if (t.id !== id || !t.searchTerm) return t;
+            
+            // Count total matches accurately
+            const matchCount = (t.logs.match(new RegExp(t.searchTerm, 'gi')) || []).length;
+            if (matchCount === 0) return t;
+
+            let nextIndex = t.activeMatchIndex;
+            if (direction === 'up') {
+                nextIndex = (nextIndex - 1 + matchCount) % matchCount;
+            } else {
+                nextIndex = (nextIndex + 1) % matchCount;
+            }
+
+            return { ...t, activeMatchIndex: nextIndex };
+        }));
+    };
     const fetchHealth = async () => {
         setLoading(true);
         try {
@@ -964,192 +1251,26 @@ const Health: React.FC<{ serverId: string, connected: boolean }> = ({ serverId, 
         </div>
     );
 
-    const ActionButton = ({ type, action, target, icon: Icon, color }: any) => {
-        const actionId = `${type}-${action}-${target}`;
-        const isLoading = actionLoading === actionId;
-        return (
-            <button
-                onClick={() => handleAction(type, action, target)}
-                disabled={!!actionLoading}
-                className={`p-1.5 rounded-lg border transition-all disabled:opacity-30 ${color} bg-opacity-10 hover:bg-opacity-20`}
-                title={`${action} ${target}`}
-            >
-                {isLoading ? (
-                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                ) : (
-                    <Icon className="w-3 h-3" />
-                )}
-            </button>
-        );
-    };
-
-    const TableHeader = ({ titles }: { titles: string[] }) => (
-        <thead>
-            <tr className="text-muted border-b border-white/10 bg-white/[0.01]">
-                {titles.map(t => (
-                    <th key={t} className="p-3 px-6 font-bold uppercase tracking-widest">{t}</th>
-                ))}
-            </tr>
-        </thead>
-    );
-
     return (
-        <div className="h-full overflow-y-auto pr-2 scrollbar-thin flex flex-col gap-10 animate-fade-in pb-10">
-            {/* Header */}
-            <div className="flex items-center justify-between glass p-4 rounded-2xl border border-white/10 bg-white/[0.02]">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-2xl bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
-                        <Activity className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h2 className="text-sm font-black font-mono uppercase tracking-[0.3em] text-white">Health Dashboard</h2>
-                        <div className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <p className="text-[9px] font-mono text-muted uppercase tracking-widest">Real-time control center</p>
-                        </div>
-                    </div>
-                </div>
-                <button 
-                    onClick={fetchHealth}
-                    className="flex items-center gap-2 px-6 py-2 rounded-2xl bg-white/5 border border-white/10 text-muted hover:text-white hover:bg-white/10 transition-all text-xs font-mono font-bold uppercase tracking-widest group"
-                >
-                    <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-                    Refresh
-                </button>
-            </div>
+        <div className="h-full">
+            <HealthDashboard 
+                status={status} 
+                onAction={handleAction} 
+                onFetchLogs={fetchLogs}
+                onRefresh={fetchHealth} 
+                loadingId={actionLoading} 
+            />
 
-            {/* Ports Section */}
-            <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3 px-2">
-                    <Database className="w-4 h-4 text-[#06b6d4]" />
-                    <h3 className="text-[11px] font-black font-mono uppercase tracking-widest text-white/90">Software Ports & Processes</h3>
-                </div>
-                <div className="glass border border-white/5 rounded-3xl overflow-hidden bg-white/[0.01]">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left font-mono text-[10px]">
-                            <TableHeader titles={['Port', 'Proto', 'Process', 'PID', 'Status', 'Actions']} />
-                            <tbody>
-                                {Array.isArray(status.ports) && status.ports.map((p: any, idx: number) => (
-                                    <tr key={idx} className="border-b border-white/[0.03] hover:bg-white/[0.05] transition-colors group">
-                                        <td className="p-3 px-6 font-bold text-emerald-400">:{p.port}</td>
-                                        <td className="p-3 px-6 uppercase text-muted/60">{p.protocol}</td>
-                                        <td className="p-3 px-6 font-bold text-white/80">{p.process}</td>
-                                        <td className="p-3 px-6 text-muted font-mono">{p.pid}</td>
-                                        <td className="p-3 px-6">
-                                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[8px] font-black uppercase">Listen</span>
-                                        </td>
-                                        <td className="p-3 px-6">
-                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <ActionButton type="pid" action="kill" target={p.pid} icon={Trash2} color="text-rose-500 border-rose-500/20" />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            {/* PM2 Section */}
-            {status.pm2 && (
-                <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-3 px-2">
-                        <Layers className="w-4 h-4 text-[#a855f7]" />
-                        <h3 className="text-[11px] font-black font-mono uppercase tracking-widest text-[#a855f7]">PM2 Ecosystem</h3>
-                    </div>
-                    <div className="glass border border-[#a855f7]/10 rounded-3xl overflow-hidden bg-[#a855f7]/[0.02]">
-                        <table className="w-full text-left font-mono text-[10px]">
-                            <TableHeader titles={['ID', 'Name', 'Status', 'CPU/Mem', 'Uptime', 'Actions']} />
-                            <tbody>
-                                {Array.isArray(status.pm2) && status.pm2.map((p: any, idx: number) => (
-                                    <tr key={idx} className="border-b border-white/[0.03] hover:bg-white/[0.05] transition-colors">
-                                        <td className="p-3 px-6 text-muted">{p.id}</td>
-                                        <td className="p-3 px-6 font-bold text-white">{p.name}</td>
-                                        <td className="p-3 px-6">
-                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${p.status === 'online' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                                                {p.status}
-                                            </span>
-                                        </td>
-                                        <td className="p-3 px-6 text-muted/60">{p.cpu} / {p.mem}</td>
-                                        <td className="p-3 px-6 text-[9px] text-muted/40">{p.uptime.split('T')[0]}</td>
-                                        <td className="p-3 px-6">
-                                            <div className="flex items-center gap-2">
-                                                {p.status === 'online' ? (
-                                                    <ActionButton type="pm2" action="stop" target={p.id} icon={Trash2} color="text-rose-500 border-rose-500/20" />
-                                                ) : (
-                                                    <ActionButton type="pm2" action="start" target={p.id} icon={Plus} color="text-emerald-500 border-emerald-500/20" />
-                                                )}
-                                                <ActionButton type="pm2" action="restart" target={p.id} icon={RefreshCw} color="text-purple-400 border-purple-500/20" />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* Docker Section */}
-            {status.docker && (
-                <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-3 px-2">
-                        <Database className="w-4 h-4 text-[#06b6d4]" />
-                        <h3 className="text-[11px] font-black font-mono uppercase tracking-widest text-[#06b6d4]">Docker Containers</h3>
-                    </div>
-                    <div className="glass border border-[#06b6d4]/10 rounded-3xl overflow-hidden bg-[#06b6d4]/[0.02]">
-                        {Array.isArray(status.docker) && status.docker.length > 0 ? (
-                            <table className="w-full text-left font-mono text-[10px]">
-                                <TableHeader titles={['Name', 'Image', 'Status', 'Ports', 'Actions']} />
-                                <tbody>
-                                    {status.docker.map((p: any, idx: number) => (
-                                        <tr key={idx} className="border-b border-white/[0.03] hover:bg-white/[0.05] transition-colors">
-                                            <td className="p-3 px-6 font-bold text-white">{p.name}</td>
-                                            <td className="p-3 px-6 text-muted/60 max-w-[150px] truncate">{p.image}</td>
-                                            <td className="p-3 px-6">
-                                                <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${p.status.includes('Up') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                                                    {p.status}
-                                                </span>
-                                            </td>
-                                            <td className="p-3 px-6 text-[9px] text-muted/40">{p.ports}</td>
-                                            <td className="p-3 px-6">
-                                                <div className="flex items-center gap-2">
-                                                    {p.status.includes('Up') ? (
-                                                        <ActionButton type="docker" action="stop" target={p.name} icon={Trash2} color="text-rose-500 border-rose-500/20" />
-                                                    ) : (
-                                                        <ActionButton type="docker" action="start" target={p.name} icon={Plus} color="text-emerald-500 border-emerald-500/20" />
-                                                    )}
-                                                    <ActionButton type="docker" action="restart" target={p.name} icon={RefreshCw} color="text-cyan-400 border-cyan-500/20" />
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <div className="p-10 text-center text-muted font-mono text-xs uppercase tracking-[0.2em] animate-pulse">
-                                No containers detected on this server
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* OS Logs */}
-            <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3 px-2">
-                    <Activity className="w-4 h-4 text-rose-500" />
-                    <h3 className="text-[11px] font-black font-mono uppercase tracking-widest text-rose-500">System Runtime Logs</h3>
-                </div>
-                <div className="glass border border-rose-500/20 rounded-3xl p-5 bg-black/60 shadow-[inset_0_0_30px_rgba(0,0,0,0.4)]">
-                    <div className="max-h-[300px] overflow-y-auto scrollbar-thin">
-                        <pre className="text-[10px] font-mono text-muted/80 leading-relaxed whitespace-pre-wrap">
-                            {status.osLogs || "Waiting for system data..."}
-                        </pre>
-                    </div>
-                </div>
-            </div>
+            <MultiTabLogViewer
+                tabs={logTabs}
+                activeTabId={activeLogTabId}
+                onCloseTab={handleCloseTab}
+                onSelectTab={setActiveLogTabId}
+                onRefreshTab={handleRefreshTab}
+                onClearLogs={handleClearLogs}
+                onSearch={handleSearchLogs}
+                onNavigateSearch={handleNavigateSearch}
+            />
         </div>
     );
 }

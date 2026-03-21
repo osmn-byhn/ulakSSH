@@ -159,6 +159,19 @@ ipcMain.handle('get-system-info', async (event, id) => {
         return { error: error.message };
     }
 });
+ipcMain.handle('get-git-repos', async (event, id) => {
+    try {
+        const session = activeSessions.get(id);
+        if (!session)
+            throw new Error('No active session for this server');
+        const { getGitRepos } = await import('../src/main/ssh/git.js');
+        return await getGitRepos(session.conn);
+    }
+    catch (error) {
+        console.error('Failed to get git repos:', error);
+        return { error: error.message };
+    }
+});
 ipcMain.handle('list-directory', async (event, id, path) => {
     try {
         const session = activeSessions.get(id);
@@ -285,16 +298,30 @@ ipcMain.handle('download-remote-item', async (event, id, remotePath, isDirectory
         if (canceled || !filePath)
             return { success: false, error: 'Cancelled' };
         const { downloadRemoteFile, archiveAndDownloadDirectory } = await import('../src/main/ssh/sftp.js');
+        // Generate a unique transfer ID
+        const transferId = `download-${Date.now()}`;
+        const onProgress = (transferred, total) => {
+            console.log(`Sending progress for ${transferId}: ${transferred}/${total}`);
+            event.sender.send('transfer-progress', {
+                id: transferId,
+                name: basename,
+                transferred,
+                total,
+                type: 'download'
+            });
+        };
         if (isDirectory) {
-            await archiveAndDownloadDirectory(session.conn, remotePath, filePath);
+            await archiveAndDownloadDirectory(session.conn, remotePath, filePath, onProgress);
         }
         else {
-            await downloadRemoteFile(session.conn, remotePath, filePath);
+            await downloadRemoteFile(session.conn, remotePath, filePath, onProgress);
         }
         return { success: true };
     }
     catch (error) {
         console.error('Failed to download item:', error);
+        // Notify renderer of the error via the transfer-progress channel if appropriate
+        // But we don't have a transferId yet in some cases, so return it in the handle result
         return { error: error.message || 'Unknown error during download' };
     }
 });
@@ -316,7 +343,18 @@ ipcMain.handle('upload-remote-item', async (event, id, remoteDir) => {
         for (const localPath of filePaths) {
             const basename = path.basename(localPath);
             const remotePath = remoteDir.endsWith('/') ? `${remoteDir}${basename}` : `${remoteDir}/${basename}`;
-            await uploadLocalFile(session.conn, localPath, remotePath);
+            const transferId = `upload-${Date.now()}-${basename}`;
+            const onProgress = (transferred, total) => {
+                console.log(`Sending upload progress for ${transferId}: ${transferred}/${total}`);
+                event.sender.send('transfer-progress', {
+                    id: transferId,
+                    name: basename,
+                    transferred,
+                    total,
+                    type: 'upload'
+                });
+            };
+            await uploadLocalFile(session.conn, localPath, remotePath, onProgress);
         }
         return { success: true };
     }

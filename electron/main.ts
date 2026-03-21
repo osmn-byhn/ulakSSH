@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const activeSessions = new Map<string, { conn: any; password?: string }>();
+const activeSessions = new Map<string, { conn: any; password?: string; username: string; shouldSudo: boolean }>();
 const activeShells = new Map<string, any>();
 // ssh2 shell streams for embedded terminal tabs: tabId -> { stream, conn }
 const activeTabShells = new Map<string, { stream: any; conn: any }>();
@@ -92,7 +92,8 @@ ipcMain.handle('connect-server', async (event, id) => {
     if (!server) throw new Error('Server not found');
 
     const conn = await connectToServer(server);
-    activeSessions.set(id, { conn, password: server.password });
+    const shouldSudo = server.username !== 'root';
+    activeSessions.set(id, { conn, password: server.password, username: server.username, shouldSudo });
 
     await new Promise<void>((resolve, reject) => {
       conn.shell({ term: 'xterm-256color' }, (err: any, stream: any) => {
@@ -100,13 +101,29 @@ ipcMain.handle('connect-server', async (event, id) => {
 
         activeShells.set(id, stream);
 
+        if (shouldSudo) {
+          // Automatic elevation to root
+          setTimeout(() => {
+            stream.write('sudo su -\n');
+          }, 500);
+        }
+
         stream.on('close', () => {
           activeShells.delete(id);
           event.sender.send(`terminal-close-${id}`);
         });
 
         stream.on('data', (data: Buffer) => {
-          event.sender.send(`terminal-output-${id}`, data.toString('utf8'));
+          const output = data.toString('utf8');
+          
+          // Handle sudo password prompt if detected
+          if (shouldSudo && (output.includes('password for') || output.includes('Password:'))) {
+            if (server.password) {
+              stream.write(`${server.password}\n`);
+            }
+          }
+          
+          event.sender.send(`terminal-output-${id}`, output);
         });
 
         resolve();
@@ -170,9 +187,22 @@ ipcMain.handle('get-system-info', async (event, id) => {
     if (!session) throw new Error('No active session for this server');
 
     const { getSystemInfo } = await import('../src/main/ssh/getSystemInfo.js');
-    return await getSystemInfo(session.conn);
+    return await getSystemInfo(session);
   } catch (error: any) {
     console.error('Failed to get system info:', error);
+    return { error: error.message };
+  }
+});
+
+ipcMain.handle('get-git-repos', async (event, id) => {
+  try {
+    const session = activeSessions.get(id);
+    if (!session) throw new Error('No active session for this server');
+
+    const { getGitRepos } = await import('../src/main/ssh/git.js');
+    return await getGitRepos(session);
+  } catch (error: any) {
+    console.error('Failed to get git repos:', error);
     return { error: error.message };
   }
 });
@@ -183,7 +213,7 @@ ipcMain.handle('list-directory', async (event, id, path) => {
     if (!session) throw new Error('No active session for this server');
 
     const { listDirectory } = await import('../src/main/ssh/ls.js');
-    return await listDirectory(session.conn, path);
+    return await listDirectory(session, path);
   } catch (error: any) {
     console.error('Failed to list directory:', error);
     return { error: error.message };
@@ -196,7 +226,7 @@ ipcMain.handle('read-remote-file', async (event, id, path) => {
     if (!session) throw new Error('No active session for this server');
 
     const { readRemoteFile } = await import('../src/main/ssh/sftp.js');
-    return await readRemoteFile(session.conn, path);
+    return await readRemoteFile(session, path);
   } catch (error: any) {
     console.error('Failed to read remote file:', error);
     return { error: error.message };
@@ -209,7 +239,7 @@ ipcMain.handle('write-remote-file', async (event, id, path, content) => {
     if (!session) throw new Error('No active session for this server');
 
     const { writeRemoteFile } = await import('../src/main/ssh/sftp.js');
-    await writeRemoteFile(session.conn, path, content);
+    await writeRemoteFile(session, path, content);
     return { success: true };
   } catch (error: any) {
     console.error('Failed to write remote file:', error);
@@ -223,7 +253,7 @@ ipcMain.handle('create-remote-directory', async (event, id, path) => {
     if (!session) throw new Error('No active session for this server');
 
     const { createRemoteDirectory } = await import('../src/main/ssh/sftp.js');
-    await createRemoteDirectory(session.conn, path);
+    await createRemoteDirectory(session, path);
     return { success: true };
   } catch (error: any) {
     console.error('Failed to create remote directory:', error);
@@ -237,7 +267,7 @@ ipcMain.handle('delete-remote-item', async (event, id, path, isDirectory) => {
     if (!session) throw new Error('No active session for this server');
 
     const { deleteRemoteItem } = await import('../src/main/ssh/sftp.js');
-    await deleteRemoteItem(session.conn, path, isDirectory);
+    await deleteRemoteItem(session, path, isDirectory);
     return { success: true };
   } catch (error: any) {
     console.error('Failed to delete remote item:', error);
@@ -251,7 +281,7 @@ ipcMain.handle('rename-remote-item', async (event, id, oldPath, newPath) => {
     if (!session) throw new Error('No active session for this server');
 
     const { renameRemoteItem } = await import('../src/main/ssh/sftp.js');
-    await renameRemoteItem(session.conn, oldPath, newPath);
+    await renameRemoteItem(session, oldPath, newPath);
     return { success: true };
   } catch (error: any) {
     console.error('Failed to rename remote item:', error);
@@ -265,7 +295,7 @@ ipcMain.handle('copy-remote-item', async (event, id, src, dest) => {
     if (!session) throw new Error('No active session for this server');
 
     const { copyRemoteItem } = await import('../src/main/ssh/sftp.js');
-    await copyRemoteItem(session.conn, src, dest);
+    await copyRemoteItem(session, src, dest);
     return { success: true };
   } catch (error: any) {
     console.error('Failed to copy remote item:', error);
@@ -279,7 +309,7 @@ ipcMain.handle('move-remote-item', async (event, id, src, dest) => {
     if (!session) throw new Error('No active session for this server');
 
     const { moveRemoteItem } = await import('../src/main/ssh/sftp.js');
-    await moveRemoteItem(session.conn, src, dest);
+    await moveRemoteItem(session, src, dest);
     return { success: true };
   } catch (error: any) {
     console.error('Failed to move remote item:', error);
@@ -305,15 +335,31 @@ ipcMain.handle('download-remote-item', async (event, id, remotePath, isDirectory
 
     const { downloadRemoteFile, archiveAndDownloadDirectory } = await import('../src/main/ssh/sftp.js');
     
+    // Generate a unique transfer ID
+    const transferId = `download-${Date.now()}`;
+    
+    const onProgress = (transferred: number, total: number) => {
+      console.log(`Sending progress for ${transferId}: ${transferred}/${total}`);
+      event.sender.send('transfer-progress', {
+        id: transferId,
+        name: basename,
+        transferred,
+        total,
+        type: 'download'
+      });
+    };
+
     if (isDirectory) {
-      await archiveAndDownloadDirectory(session.conn, remotePath, filePath);
+      await archiveAndDownloadDirectory(session.conn, remotePath, filePath, onProgress);
     } else {
-      await downloadRemoteFile(session.conn, remotePath, filePath);
+      await downloadRemoteFile(session.conn, remotePath, filePath, onProgress);
     }
     
     return { success: true };
   } catch (error: any) {
     console.error('Failed to download item:', error);
+    // Notify renderer of the error via the transfer-progress channel if appropriate
+    // But we don't have a transferId yet in some cases, so return it in the handle result
     return { error: error.message || 'Unknown error during download' };
   }
 });
@@ -338,7 +384,21 @@ ipcMain.handle('upload-remote-item', async (event, id, remoteDir) => {
     for (const localPath of filePaths) {
       const basename = path.basename(localPath);
       const remotePath = remoteDir.endsWith('/') ? `${remoteDir}${basename}` : `${remoteDir}/${basename}`;
-      await uploadLocalFile(session.conn, localPath, remotePath);
+      
+      const transferId = `upload-${Date.now()}-${basename}`;
+      
+      const onProgress = (transferred: number, total: number) => {
+        console.log(`Sending upload progress for ${transferId}: ${transferred}/${total}`);
+        event.sender.send('transfer-progress', {
+          id: transferId,
+          name: basename,
+          transferred,
+          total,
+          type: 'upload'
+        });
+      };
+
+      await uploadLocalFile(session.conn, localPath, remotePath, onProgress);
     }
     
     return { success: true };
@@ -407,7 +467,7 @@ ipcMain.handle('check-server-app-updates', async (event, id) => {
       if (!session) throw new Error('No active session for this server');
   
       const { getHealthStatus } = await import('../src/main/monitoring/getHealthStatus.js');
-      return await getHealthStatus(session.conn, session.password);
+      return await getHealthStatus(session);
     } catch (error: any) {
       console.error('Failed to get health status:', error);
       return { error: error.message };
@@ -419,7 +479,7 @@ ipcMain.handle('check-server-app-updates', async (event, id) => {
       if (!session) throw new Error('No active session for this server');
   
       const { manageProcess } = await import('../src/main/monitoring/manageProcess.js');
-      return await manageProcess(session.conn, type, action, target, session.password);
+      return await manageProcess(session, type, action, target);
     } catch (error: any) {
       console.error('Failed to manage process:', error);
       return { success: false, error: error.message };
@@ -432,7 +492,7 @@ ipcMain.handle('check-server-app-updates', async (event, id) => {
       if (!session) throw new Error('No active session for this server');
   
       const { getProcessLogs } = await import('../src/main/monitoring/getProcessLogs.js');
-      return await getProcessLogs(session.conn, type, target, session.password);
+      return await getProcessLogs(session, type, target);
     } catch (error: any) {
       console.error('Failed to get process logs:', error);
       return { error: error.message };
@@ -472,8 +532,25 @@ ipcMain.handle('tab-spawn', async (event, serverId: string, tabId: string, cols:
 
         activeTabShells.set(tabId, { stream, conn });
 
+        const shouldSudo = server.username !== 'root';
+        if (shouldSudo) {
+          // Automatic elevation to root for tabs
+          setTimeout(() => {
+            stream.write('sudo su -\n');
+          }, 500);
+        }
+
         stream.on('data', (data: Buffer) => {
-          event.sender.send(`tab-output-${tabId}`, data.toString('utf8'));
+          const output = data.toString('utf8');
+          
+          // Handle sudo password prompt if detected for tabs
+          if (shouldSudo && (output.includes('password for') || output.includes('Password:'))) {
+            if (server.password) {
+              stream.write(`${server.password}\n`);
+            }
+          }
+          
+          event.sender.send(`tab-output-${tabId}`, output);
         });
 
         stream.on('close', () => {

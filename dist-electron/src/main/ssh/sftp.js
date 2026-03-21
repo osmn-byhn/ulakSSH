@@ -124,12 +124,17 @@ export const moveRemoteItem = (conn, src, dest) => {
         });
     });
 };
-export const downloadRemoteFile = (conn, remotePath, localPath) => {
+export const downloadRemoteFile = (conn, remotePath, localPath, onProgress) => {
     return new Promise((resolve, reject) => {
         conn.sftp((err, sftp) => {
             if (err)
                 return reject(err);
-            sftp.fastGet(remotePath, localPath, (getErr) => {
+            sftp.fastGet(remotePath, localPath, {
+                step: (transferred, _chunk, total) => {
+                    if (onProgress)
+                        onProgress(transferred, total);
+                }
+            }, (getErr) => {
                 sftp.end();
                 if (getErr) {
                     console.error(`SFTP fastGet error from ${remotePath} to ${localPath}:`, getErr);
@@ -140,12 +145,17 @@ export const downloadRemoteFile = (conn, remotePath, localPath) => {
         });
     });
 };
-export const uploadLocalFile = (conn, localPath, remotePath) => {
+export const uploadLocalFile = (conn, localPath, remotePath, onProgress) => {
     return new Promise((resolve, reject) => {
         conn.sftp((err, sftp) => {
             if (err)
                 return reject(err);
-            sftp.fastPut(localPath, remotePath, (putErr) => {
+            sftp.fastPut(localPath, remotePath, {
+                step: (transferred, _chunk, total) => {
+                    if (onProgress)
+                        onProgress(transferred, total);
+                }
+            }, (putErr) => {
                 sftp.end();
                 if (putErr) {
                     console.error(`SFTP fastPut error from ${localPath} to ${remotePath}:`, putErr);
@@ -156,12 +166,11 @@ export const uploadLocalFile = (conn, localPath, remotePath) => {
         });
     });
 };
-export const archiveAndDownloadDirectory = (conn, remotePath, localPath) => {
+export const archiveAndDownloadDirectory = (conn, remotePath, localPath, onProgress) => {
     return new Promise((resolve, reject) => {
         const basename = remotePath.split('/').pop() || 'folder';
         const remoteArchivePath = `/tmp/${basename}_${Date.now()}.tar.gz`;
         // Command to create archive
-        // -C is for change directory so we don't include the full path in the archive
         const dir = remotePath.substring(0, remotePath.lastIndexOf('/')) || '/';
         const name = remotePath.substring(remotePath.lastIndexOf('/') + 1);
         conn.exec(`tar -czf "${remoteArchivePath}" -C "${dir}" "${name}"`, (err, stream) => {
@@ -174,7 +183,12 @@ export const archiveAndDownloadDirectory = (conn, remotePath, localPath) => {
                 conn.sftp((sftpErr, sftp) => {
                     if (sftpErr)
                         return reject(sftpErr);
-                    sftp.fastGet(remoteArchivePath, localPath, (getErr) => {
+                    sftp.fastGet(remoteArchivePath, localPath, {
+                        step: (transferred, _chunk, total) => {
+                            if (onProgress)
+                                onProgress(transferred, total);
+                        }
+                    }, (getErr) => {
                         sftp.end();
                         // Cleanup remote archive regardless of result
                         conn.exec(`rm "${remoteArchivePath}"`, () => { });

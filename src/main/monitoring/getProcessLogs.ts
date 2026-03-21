@@ -1,4 +1,4 @@
-import { Client } from 'ssh2';
+import { executeCommand, type SudoSession } from '../ssh/execute.js';
 
 export type ProcessManagerType = 
     | 'pm2' 
@@ -11,58 +11,49 @@ export type ProcessManagerType =
     | 'pmc' 
     | 'strong-pm';
 
-export const getProcessLogs = (
-    conn: Client,
+export const getProcessLogs = async (
+    session: SudoSession,
     type: ProcessManagerType,
-    target: string,
-    password?: string
+    target: string
 ): Promise<string> => {
-    const sudo = (cmd: string) => {
-        if (!password) return cmd;
-        return `echo "${password}" | sudo -S ${cmd}`;
-    };
-
     let cmd = '';
     switch (type) {
         case 'pm2':
-            cmd = sudo(`pm2 logs ${target} --lines 100 --no-colors`);
+            cmd = `pm2 logs ${target} --lines 100 --no-colors`;
             break;
         case 'docker':
-            cmd = sudo(`docker logs ${target} --tail 100 2>&1`);
+            cmd = `docker logs ${target} --tail 100 2>&1`;
             break;
         case 'docker-compose':
-            cmd = sudo(`docker compose logs ${target} --tail 100 --no-color 2>&1`);
+            cmd = `docker compose logs ${target} --tail 100 --no-color 2>&1`;
             break;
         case 'forever':
-            cmd = sudo(`forever logs ${target} -n 100`);
+            cmd = `forever logs ${target} -n 100`;
             break;
         case 'systemd':
-            cmd = sudo(`journalctl -u ${target} -n 100 --no-pager`);
+            cmd = `journalctl -u ${target} -n 100 --no-pager`;
             break;
         case 'supervisor':
-            cmd = sudo(`supervisorctl tail -1000 ${target}`); // supervisorctl tail uses bytes or similar, but often -1000 works for last 1000 lines/bytes
+            cmd = `supervisorctl tail -1000 ${target}`;
             break;
         case 'oxmgr':
-            cmd = sudo(`oxmgr logs ${target} --lines 100`);
+            cmd = `oxmgr logs ${target} --lines 100`;
             break;
         case 'pmc':
-            cmd = sudo(`pmc logs ${target}`); // Adjust based on pmc docs if needed
+            cmd = `pmc logs ${target}`;
             break;
         case 'strong-pm':
-            cmd = sudo(`slc pm log ${target}`);
+            cmd = `slc pm log ${target}`;
             break;
     }
 
-    return new Promise((resolve, reject) => {
-        if (!cmd) return reject(new Error(`Unsupported process manager: ${type}`));
+    if (!cmd) throw new Error(`Unsupported process manager: ${type}`);
 
-        conn.exec(cmd, (err, stream) => {
-            if (err) return reject(err);
-
-            let output = '';
-            stream.on('data', (data: Buffer) => output += data.toString());
-            stream.stderr.on('data', (data: Buffer) => output += data.toString());
-            stream.on('close', () => resolve(output.trim()));
-        });
-    });
+    try {
+        const output = await executeCommand(session, cmd);
+        return output.trim();
+    } catch (err: any) {
+        // executeCommand might reject with error output, which we want as the log output
+        return err.message;
+    }
 };

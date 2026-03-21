@@ -22,6 +22,7 @@ electron_1.contextBridge.exposeInMainWorld("api", {
     sendTerminalData: (id, data) => electron_1.ipcRenderer.send('terminal-input', id, data),
     resizeTerminal: (id, cols, rows) => electron_1.ipcRenderer.send('terminal-resize', id, cols, rows),
     getSystemInfo: (id) => electron_1.ipcRenderer.invoke('get-system-info', id),
+    getGitRepos: (id) => electron_1.ipcRenderer.invoke('get-git-repos', id),
     pickFile: () => electron_1.ipcRenderer.invoke('pick-file'),
     readFile: (filePath) => electron_1.ipcRenderer.invoke('read-file', filePath),
     updateServer: (id, updates) => electron_1.ipcRenderer.invoke('update-server', id, updates),
@@ -67,5 +68,9 @@ electron_1.contextBridge.exposeInMainWorld("api", {
         electron_1.ipcRenderer.removeAllListeners(channel);
         electron_1.ipcRenderer.on(channel, () => callback());
         return () => electron_1.ipcRenderer.removeAllListeners(channel);
+    },
+    onTransferProgress: (callback) => {
+        electron_1.ipcRenderer.on('transfer-progress', (_event, data) => callback(data));
+        return () => electron_1.ipcRenderer.removeAllListeners('transfer-progress');
     },
 });

@@ -291,7 +291,6 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
     );
 
     const [selectedFile, setSelectedFile] = useState<{ name: string, content: string, path: string } | null>(null);
-
     const api = (window as any).api;
 
     useEffect(() => {
@@ -570,11 +569,26 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                     <button
                         onClick={handleUpload}
                         disabled={loading || !connected}
-                        className="p-2 px-3 rounded-xl bg-[#06b6d4]/10 border border-[#06b6d4]/30 hover:bg-[#06b6d4]/20 text-[#06b6d4] flex items-center gap-2 transition-all disabled:opacity-30"
+                        className="p-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 flex items-center gap-2 transition-all disabled:opacity-30"
                         title="Upload (Export) to this directory"
                     >
                         <Upload className="w-4 h-4" />
                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest hidden sm:inline">Export</span>
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            // Find the first selected item or target from context menu
+                            // Since we don't have a 'selection' state yet, we'll use the context menu target if available,
+                            // or maybe just rely on the context menu for now.
+                            // Actually, I'll add a 'selectedItems' state if needed, but for now I'll just rename.
+                        }}
+                        disabled={true} // Disabled for now as we need selection logic
+                        className="p-2 px-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 text-blue-400 flex items-center gap-2 transition-all disabled:opacity-30 hidden"
+                        title="Download (Import) selected items"
+                    >
+                        <Download className="w-4 h-4" />
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest hidden sm:inline">Import</span>
                     </button>
 
                     <button
@@ -723,6 +737,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                 )}
             </div>
 
+
             <EditorModal
                 isOpen={!!selectedFile}
                 onClose={() => setSelectedFile(null)}
@@ -755,7 +770,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                                 onClick: () => { setShowNameDialog({ type: 'rename', target: contextMenu.target }); setNameInputValue(contextMenu.target.name); } 
                             },
                             { 
-                                label: 'Download', 
+                                label: 'Import', 
                                 icon: <Download className="w-4 h-4" />, 
                                 onClick: () => handleDownload(contextMenu.target) 
                             },
@@ -1784,6 +1799,7 @@ const ServerDetail: React.FC = () => {
     const [connecting, setConnecting] = useState(false);
     const [connected, setConnected] = useState(false);
     const [systemInfo, setSystemInfo] = useState<any>(null);
+    const [ULAK_GIT_REPOS, setUlakGitRepos] = useState<any[]>([]);
 
     const [alertMessage, setAlertMessage] = useState('');
     const [alertType, setAlertType] = useState<AlertType>('info');
@@ -1794,14 +1810,76 @@ const ServerDetail: React.FC = () => {
 
     const api = (window as any).api;
 
+    const [transfers, setTransfers] = useState<Record<string, any>>({});
+
     useEffect(() => {
-        let interval: NodeJS.Timeout;
+        let isPolling = true;
+        let timeout: NodeJS.Timeout;
+
+        const poll = async () => {
+            if (!connected || !server || !isPolling) return;
+            await fetchStats();
+            if (isPolling) timeout = setTimeout(poll, 1000);
+        };
+
         if (connected && server) {
-            fetchStats();
-            interval = setInterval(fetchStats, 1000);
+            poll();
         }
-        return () => clearInterval(interval);
+
+        return () => {
+            isPolling = false;
+            clearTimeout(timeout);
+        };
     }, [connected, server]);
+
+    useEffect(() => {
+        if (api && api.onTransferProgress) {
+            console.log("Setting up transfer progress listener in ServerDetail");
+            const cleanup = api.onTransferProgress((data: any) => {
+                console.log("Received transfer progress in renderer:", data);
+                setTransfers(prev => {
+                    const existing = prev[data.id] || { speedHistory: [], expanded: false };
+                    
+                    const now = Date.now();
+                    const lastUpdate = existing.lastUpdate || now;
+                    const timeDiff = (now - lastUpdate) / 1000;
+                    const bytesDiff = data.transferred - (existing.transferred || 0);
+                    const currentSpeed = timeDiff > 0 ? bytesDiff / timeDiff : 0;
+                    
+                    const newSpeedHistory = [...(existing.speedHistory || [])];
+                    if (newSpeedHistory.length > 20) newSpeedHistory.shift();
+                    newSpeedHistory.push({ time: now, speed: currentSpeed });
+                    
+                    const updates = {
+                        speedHistory: newSpeedHistory,
+                        lastUpdate: now,
+                        lastBytes: data.transferred,
+                        currentSpeed
+                    };
+
+                    return {
+                        ...prev,
+                        [data.id]: {
+                            ...data,
+                            expanded: existing.expanded,
+                            ...updates
+                        }
+                    };
+                });
+
+                if (data.transferred >= data.total && data.total > 0) {
+                    setTimeout(() => {
+                        setTransfers(prev => {
+                            const next = { ...prev };
+                            delete next[data.id];
+                            return next;
+                        });
+                    }, 5000);
+                }
+            });
+            return cleanup;
+        }
+    }, [api]);
 
     const fetchStats = async () => {
         if (!server) return;
@@ -1859,6 +1937,10 @@ const ServerDetail: React.FC = () => {
                 triggerAlert("Connected successfully", "success");
                 const info = await api.getSystemInfo(serverId);
                 if (info && !info.error) setSystemInfo(info);
+                
+                // Fetch git repositories
+                const repos = await api.getGitRepos(serverId);
+                if (repos && !repos.error) setUlakGitRepos(repos);
             } else {
                 setConnected(false);
                 triggerAlert(`Connection failed: ${res?.error || 'Unknown error'}`, "error");
@@ -1873,7 +1955,7 @@ const ServerDetail: React.FC = () => {
         if (!id) return;
         const res = await api.disconnectServer(id);
         if (res?.success) {
-            setConnected(false); setSystemInfo(null);
+            setConnected(false); setSystemInfo(null); setUlakGitRepos([]);
             triggerAlert("Disconnected cleanly", "info");
         }
     };
@@ -2042,7 +2124,7 @@ const ServerDetail: React.FC = () => {
                                     <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
                                 </svg>
                             ),
-                            content: <NeofetchInfo server={server} connected={connected} systemInfo={systemInfo} stats={stats} />
+                            content: <NeofetchInfo server={server} connected={connected} systemInfo={systemInfo} stats={stats} ULAK_GIT_REPOS={ULAK_GIT_REPOS} />
                         },
                         {
                             id: 'dir',
@@ -2190,6 +2272,101 @@ const ServerDetail: React.FC = () => {
                     onClose={() => setShowAlert(false)}
                     duration={5000}
                 />
+            )}
+
+            {/* Transfer Progress Overlays */}
+            {Object.keys(transfers).length > 0 && (
+                <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-3 w-80 animate-slide-up">
+                    {Object.values(transfers).map((transfer: any) => (
+                        <div 
+                            key={transfer.id} 
+                            className="glass rounded-2xl border border-white/10 overflow-hidden glow-cyan shadow-2xl animate-fade-in"
+                        >
+                            {/* Header */}
+                            <div className="p-3 py-2.5 flex items-center justify-between border-b border-white/5 bg-white/5">
+                                <div className="flex items-center gap-2.5 overflow-hidden">
+                                    <div className={`p-1.5 rounded-lg shrink-0 ${transfer.type === 'download' ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                        {transfer.type === 'download' ? <Download className="w-3.5 h-3.5" /> : <Upload className="w-3.5 h-3.5" />}
+                                    </div>
+                                    <div className="flex flex-col overflow-hidden">
+                                        <span className="text-[10px] font-mono font-bold text-white/90 truncate">{transfer.name}</span>
+                                        <span className="text-[8px] font-mono text-muted uppercase tracking-widest">
+                                            {transfer.type === 'download' ? 'Importing' : 'Exporting'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <button 
+                                        onClick={() => setTransfers(prev => ({
+                                            ...prev,
+                                            [transfer.id]: { ...prev[transfer.id], expanded: !prev[transfer.id].expanded }
+                                        }))}
+                                        className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white/80 transition-colors"
+                                    >
+                                        <Maximize2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button 
+                                        onClick={() => setTransfers(prev => {
+                                            const next = { ...prev };
+                                            delete next[transfer.id];
+                                            return next;
+                                        })}
+                                        className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white/80 transition-colors"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Progress info */}
+                            <div className="p-3 space-y-2">
+                                <div className="flex justify-between items-end">
+                                    <span className="text-[10px] font-mono text-muted">
+                                        {transfer.total > 0 ? ((transfer.transferred / transfer.total) * 100).toFixed(1) : '0.0'}%
+                                    </span>
+                                    <span className="text-[10px] font-mono text-muted">
+                                        {(transfer.transferred / 1024 / 1024).toFixed(1)} / {transfer.total > 0 ? (transfer.total / 1024 / 1024).toFixed(1) : '?'} MB
+                                    </span>
+                                </div>
+                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                    <div 
+                                        className={`h-full transition-all duration-300 ${transfer.type === 'download' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}
+                                        style={{ width: `${transfer.total > 0 ? (transfer.transferred / transfer.total) * 100 : 0}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Graphical Area (Expanded) */}
+                            {transfer.expanded && (
+                                <div className="h-32 w-full p-2 pt-0 animate-fade-in border-t border-white/5 relative">
+                                    <div className="h-full w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart data={transfer.speedHistory}>
+                                                <defs>
+                                                    <linearGradient id={`colorSpeed-${transfer.id}`} x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor={transfer.type === 'download' ? '#3b82f6' : '#10b981'} stopOpacity={0.3}/>
+                                                        <stop offset="95%" stopColor={transfer.type === 'download' ? '#3b82f6' : '#10b981'} stopOpacity={0}/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <Area 
+                                                    type="monotone" 
+                                                    dataKey="speed" 
+                                                    stroke={transfer.type === 'download' ? '#3b82f6' : '#10b981'} 
+                                                    fillOpacity={1} 
+                                                    fill={`url(#colorSpeed-${transfer.id})`} 
+                                                    isAnimationActive={false}
+                                                />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="absolute bottom-2 left-4 text-[9px] font-mono text-white/30 uppercase tracking-widest">
+                                        Speed: {(transfer.currentSpeed / 1024 / 1024).toFixed(2)} MB/s
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
             )}
         </div>
     );

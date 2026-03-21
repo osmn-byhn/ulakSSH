@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld("api", {
   sendTerminalData: (id: string, data: string) => ipcRenderer.send('terminal-input', id, data),
   resizeTerminal: (id: string, cols: number, rows: number) => ipcRenderer.send('terminal-resize', id, cols, rows),
   getSystemInfo: (id: string) => ipcRenderer.invoke('get-system-info', id),
+  getGitRepos: (id: string) => ipcRenderer.invoke('get-git-repos', id),
   pickFile: () => ipcRenderer.invoke('pick-file'),
   readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
   updateServer: (id: string, updates: any) => ipcRenderer.invoke('update-server', id, updates),
@@ -76,5 +77,9 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.removeAllListeners(channel);
     ipcRenderer.on(channel, () => callback());
     return () => ipcRenderer.removeAllListeners(channel);
+  },
+  onTransferProgress: (callback: (data: any) => void) => {
+    ipcRenderer.on('transfer-progress', (_event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('transfer-progress');
   },
 });

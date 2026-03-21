@@ -1,65 +1,50 @@
-import { Client } from 'ssh2';
+import { executeCommand, type SudoSession } from '../ssh/execute.js';
 
 export type ProcessType = 'pm2' | 'docker' | 'forever' | 'pid';
 export type ProcessAction = 'start' | 'stop' | 'restart' | 'kill' | 'delete';
 
-export const manageProcess = (
-    conn: Client,
+export const manageProcess = async (
+    session: SudoSession,
     type: ProcessType,
     action: ProcessAction,
-    target: string,
-    password?: string
+    target: string
 ): Promise<{ success: boolean; error?: string }> => {
-    return new Promise((resolve) => {
-        let cmd = '';
+    let cmd = '';
 
-        const sudo = (c: string) => {
-            if (!password) return c;
-            return `echo "${password}" | sudo -S ${c}`;
-        };
+    switch (type) {
+        case 'pm2':
+            if (action === 'delete') {
+                cmd = `pm2 delete ${target}`;
+            } else {
+                cmd = `pm2 ${action} ${target}`;
+            }
+            break;
+        case 'docker':
+            if (action === 'delete') {
+                cmd = `docker rm -f ${target}`;
+            } else {
+                cmd = `docker ${action} ${target}`;
+            }
+            break;
+        case 'forever':
+            // Forever 'stop' is effectively removing it from the running list
+            cmd = `forever stop ${target}`;
+            break;
+        case 'pid':
+            if (action === 'kill') {
+                cmd = `kill -9 ${target}`;
+            }
+            break;
+    }
 
-        switch (type) {
-            case 'pm2':
-                if (action === 'delete') {
-                    cmd = sudo(`pm2 delete ${target}`);
-                } else {
-                    cmd = sudo(`pm2 ${action} ${target}`);
-                }
-                break;
-            case 'docker':
-                if (action === 'delete') {
-                    cmd = sudo(`docker rm -f ${target}`);
-                } else {
-                    cmd = sudo(`docker ${action} ${target}`);
-                }
-                break;
-            case 'forever':
-                // Forever 'stop' is effectively removing it from the running list
-                cmd = sudo(`forever stop ${target}`);
-                break;
-            case 'pid':
-                if (action === 'kill') {
-                    cmd = sudo(`kill -9 ${target}`);
-                }
-                break;
-        }
+    if (!cmd) {
+        return { success: false, error: 'Unsupported process type or action' };
+    }
 
-        if (!cmd) {
-            return resolve({ success: false, error: 'Unsupported process type or action' });
-        }
-
-        conn.exec(cmd, (err, stream) => {
-            if (err) return resolve({ success: false, error: err.message });
-
-            let errorOutput = '';
-            stream.stderr.on('data', (data) => errorOutput += data.toString());
-            stream.on('close', (code: number | null) => {
-                if (code === 0) {
-                    resolve({ success: true });
-                } else {
-                    resolve({ success: false, error: errorOutput.trim() || `Exit code: ${code}` });
-                }
-            });
-        });
-    });
+    try {
+        await executeCommand(session, cmd);
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
 };

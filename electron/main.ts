@@ -602,7 +602,7 @@ ipcMain.handle('start-process-log-stream', async (event, serverId, type, target,
     if (!session) throw new Error('No active session');
 
     const { getProcessLogStream } = await import('../src/main/monitoring/getProcessLogStream.js');
-    const stream = await getProcessLogStream(session.conn, type, target, session.password);
+    const stream = await getProcessLogStream(session, type, target);
 
     activeLogStreams.set(tabId, { stream, serverId });
 

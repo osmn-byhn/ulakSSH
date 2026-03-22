@@ -626,6 +626,36 @@ ipcMain.handle('start-process-log-stream', async (event, serverId, type, target,
   }
 });
 
+ipcMain.handle('start-script-stream', async (event, serverId, scriptCommand, tabId) => {
+  try {
+    const session = activeSessions.get(serverId);
+    if (!session) throw new Error('No active session');
+
+    const { runScriptStream } = await import('../src/main/ssh/runScript.js');
+    const stream = await runScriptStream(session, scriptCommand);
+
+    activeLogStreams.set(tabId, { stream, serverId });
+
+    stream.on('data', (data: Buffer) => {
+      event.sender.send(`log-output-${tabId}`, data.toString('utf8'));
+    });
+
+    stream.stderr.on('data', (data: Buffer) => {
+      event.sender.send(`log-output-${tabId}`, data.toString('utf8'));
+    });
+
+    stream.on('close', () => {
+      activeLogStreams.delete(tabId);
+      event.sender.send(`log-exit-${tabId}`);
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Failed to start script stream:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('stop-process-log-stream', async (event, tabId) => {
   const logInfo = activeLogStreams.get(tabId);
   if (logInfo && logInfo.stream) {

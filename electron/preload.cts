@@ -48,12 +48,20 @@ contextBridge.exposeInMainWorld("api", {
   // ─── Real-time Log Streaming ─────────────
   startLogStream: (serverId: string, type: string, target: string, tabId: string) =>
     ipcRenderer.invoke('start-process-log-stream', serverId, type, target, tabId),
+  startScriptStream: (serverId: string, scriptCommand: string, tabId: string) =>
+    ipcRenderer.invoke('start-script-stream', serverId, scriptCommand, tabId),
   stopLogStream: (tabId: string) =>
     ipcRenderer.invoke('stop-process-log-stream', tabId),
   onLogOutput: (tabId: string, callback: (data: string) => void) => {
     const channel = `log-output-${tabId}`;
     ipcRenderer.removeAllListeners(channel);
     ipcRenderer.on(channel, (_event: any, data: string) => callback(data));
+    return () => ipcRenderer.removeAllListeners(channel);
+  },
+  onLogExit: (tabId: string, callback: () => void) => {
+    const channel = `log-exit-${tabId}`;
+    ipcRenderer.removeAllListeners(channel);
+    ipcRenderer.on(channel, () => callback());
     return () => ipcRenderer.removeAllListeners(channel);
   },
 

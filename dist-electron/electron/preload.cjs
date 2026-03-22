@@ -45,11 +45,18 @@ electron_1.contextBridge.exposeInMainWorld("api", {
     getProcessLogs: (serverId, type, target) => electron_1.ipcRenderer.invoke('get-process-logs', serverId, type, target),
     // ─── Real-time Log Streaming ─────────────
     startLogStream: (serverId, type, target, tabId) => electron_1.ipcRenderer.invoke('start-process-log-stream', serverId, type, target, tabId),
+    startScriptStream: (serverId, scriptCommand, tabId) => electron_1.ipcRenderer.invoke('start-script-stream', serverId, scriptCommand, tabId),
     stopLogStream: (tabId) => electron_1.ipcRenderer.invoke('stop-process-log-stream', tabId),
     onLogOutput: (tabId, callback) => {
         const channel = `log-output-${tabId}`;
         electron_1.ipcRenderer.removeAllListeners(channel);
         electron_1.ipcRenderer.on(channel, (_event, data) => callback(data));
+        return () => electron_1.ipcRenderer.removeAllListeners(channel);
+    },
+    onLogExit: (tabId, callback) => {
+        const channel = `log-exit-${tabId}`;
+        electron_1.ipcRenderer.removeAllListeners(channel);
+        electron_1.ipcRenderer.on(channel, () => callback());
         return () => electron_1.ipcRenderer.removeAllListeners(channel);
     },
     // ─── Embedded Terminal Tabs (ssh2-based, no password prompt) ─────────────

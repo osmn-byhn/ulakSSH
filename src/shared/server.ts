@@ -1,5 +1,12 @@
 export type OsType = 'ubuntu' | 'debian' | 'centos' | 'arch' | 'fedora' | 'linux' | 'windows' | 'macos' | 'alpine' | 'suse';
 
+export type Script = {
+    id: string;
+    name: string;
+    command: string;
+    color: string;
+}
+
 export type Server = {
     id: string;
     name: string;
@@ -14,4 +21,5 @@ export type Server = {
     color?: string;
     os?: string;
     lastConnected?: string;
+    scripts?: Script[];
 }

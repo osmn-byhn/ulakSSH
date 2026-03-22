@@ -870,10 +870,172 @@ const Settings: React.FC = () => {
     );
 }
 
-const Commands: React.FC = () => {
-    return (
-        <div className="h-full">
+const Commands: React.FC<{ 
+    server: Server, 
+    onRunScript: (command: string, title: string) => void,
+    onUpdateServer: (updates: Partial<Server>) => void,
+    triggerAlert: (msg: string, type: AlertType) => void
+}> = ({ server, onRunScript, onUpdateServer, triggerAlert }) => {
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newScript, setNewScript] = useState({ name: '', command: '', color: '#06b6d4' });
 
+    const handleAddScript = () => {
+        if (!newScript.name || !newScript.command) {
+            triggerAlert("Name and command are required", "error");
+            return;
+        }
+        const script: Script = {
+            id: Math.random().toString(36).substr(2, 9),
+            ...newScript
+        };
+        const updatedScripts = [...(server.scripts || []), script];
+        onUpdateServer({ scripts: updatedScripts });
+        setNewScript({ name: '', command: '', color: '#06b6d4' });
+        setShowAddModal(false);
+        triggerAlert("Script added", "success");
+    };
+
+    const handleDeleteScript = (id: string) => {
+        if (!confirm("Are you sure you want to delete this script?")) return;
+        const updatedScripts = (server.scripts || []).filter(s => s.id !== id);
+        onUpdateServer({ scripts: updatedScripts });
+        triggerAlert("Script deleted", "info");
+    };
+
+    return (
+        <div className="flex flex-col gap-6 animate-fade-in pb-10">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="text-sm font-mono font-bold uppercase tracking-widest text-white/90">Custom Scripts</h3>
+                    <p className="text-[10px] font-mono text-muted uppercase tracking-widest mt-1">Automate your terminal workflows</p>
+                </div>
+                <button
+                    onClick={() => setShowAddModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#06b6d4]/10 border border-[#06b6d4]/30 hover:bg-[#06b6d4]/20 text-[#06b6d4] transition-all group"
+                >
+                    <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
+                    <span className="text-[10px] font-black font-mono uppercase tracking-widest">New Script</span>
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {(server.scripts || []).map((script) => (
+                    <div 
+                        key={script.id}
+                        className="glass relative group overflow-hidden rounded-2xl border border-white/5 hover:border-white/10 transition-all p-4 flex flex-col gap-3 h-32"
+                    >
+                        {/* Color accent */}
+                        <div 
+                            className="absolute top-0 left-0 w-full h-1 opacity-50"
+                            style={{ background: script.color }}
+                        />
+                        
+                        <div className="flex items-start justify-between">
+                            <div className="flex flex-col overflow-hidden">
+                                <span className="text-[10px] font-mono font-bold text-white/90 truncate">{script.name}</span>
+                                <span className="text-[8px] font-mono text-muted uppercase tracking-[0.2em] mt-0.5 truncate">{script.command}</span>
+                            </div>
+                            <button 
+                                onClick={() => handleDeleteScript(script.id)}
+                                className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 text-muted hover:text-rose-500 rounded-lg transition-all"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1" />
+
+                        <div className="flex items-center justify-between">
+                            <div className="flex gap-1">
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: script.color }} />
+                            </div>
+                            <button
+                                onClick={() => onRunScript(script.command, script.name)}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white transition-all active:scale-95 group/btn"
+                            >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-[#06b6d4] transition-transform group-hover/btn:scale-110">
+                                    <path d="M5 3l14 9-14 9V3z" />
+                                </svg>
+                                <span className="text-[9px] font-black font-mono uppercase tracking-widest">Run</span>
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Empty State */}
+            {(!server.scripts || server.scripts.length === 0) && (
+                <div className="flex flex-col items-center justify-center py-20 opacity-20 gap-4 border-2 border-dashed border-white/10 rounded-3xl">
+                    <FileCode className="w-12 h-12" />
+                    <p className="text-[10px] font-mono uppercase tracking-[0.3em]">No scripts created yet</p>
+                </div>
+            )}
+
+            {/* Add Modal */}
+            {showAddModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+                    <div className="glass w-full max-w-md p-6 rounded-3xl border border-white/10 shadow-2xl flex flex-col gap-6">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-mono font-bold uppercase tracking-widest text-white/90">Create Script</h3>
+                            <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-white/5 rounded-full text-muted hover:text-white transition-all">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Script Name</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Docker status"
+                                    value={newScript.name}
+                                    onChange={(e) => setNewScript({ ...newScript, name: e.target.value })}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Bash Command</label>
+                                <textarea
+                                    placeholder="e.g. docker ps -a"
+                                    value={newScript.command}
+                                    onChange={(e) => setNewScript({ ...newScript, command: e.target.value })}
+                                    className="w-full h-24 bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all resize-none"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Accent Color</label>
+                                <div className="flex gap-3">
+                                    {['#06b6d4', '#10b981', '#a855f7', '#f43f5e', '#fbbf24', '#3b82f6'].map(color => (
+                                        <button
+                                            key={color}
+                                            onClick={() => setNewScript({ ...newScript, color })}
+                                            className={`w-6 h-6 rounded-lg transition-all ${newScript.color === color ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : 'hover:scale-110'}`}
+                                            style={{ backgroundColor: color }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-2">
+                            <button
+                                onClick={() => setShowAddModal(false)}
+                                className="flex-1 py-3 rounded-2xl text-[10px] font-black font-mono tracking-widest uppercase text-muted hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAddScript}
+                                className="flex-1 py-3 rounded-2xl bg-[#06b6d4] hover:bg-[#06b6d4]/80 text-black text-[10px] font-black font-mono tracking-widest uppercase shadow-[0_0_30px_rgba(6,182,212,0.2)] transition-all"
+                            >
+                                Save Script
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -1121,100 +1283,17 @@ const MultiTabLogViewer: React.FC<{
     );
 };
 
-const Health: React.FC<{ serverId: string, connected: boolean }> = ({ serverId, connected }) => {
+const Health: React.FC<{ 
+    serverId: string, 
+    connected: boolean,
+    fetchLogs: (type: string, target: string, title: string) => Promise<void>
+}> = ({ serverId, connected, fetchLogs }) => {
     const [status, setStatus] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     
-    // Log Tabs State
-    const [logTabs, setLogTabs] = useState<LogTab[]>([]);
-    const [activeLogTabId, setActiveLogTabId] = useState<string | null>(null);
-
     const api = (window as any).api;
 
-    const fetchLogs = async (type: string, target: string, title: string) => {
-        const tabId = `${type}-${target}`;
-        
-        // Check if tab already exists
-        const existingTab = logTabs.find(t => t.id === tabId);
-        if (existingTab) {
-            setActiveLogTabId(tabId);
-            // Optionally refresh it
-            // handleRefreshTab(tabId);
-            return;
-        }
-
-        // Add new tab
-        const newTab: LogTab = { id: tabId, title, type, target, logs: '', loading: true, searchTerm: '', activeMatchIndex: 0 };
-        setLogTabs(prev => [...prev, newTab]);
-        setActiveLogTabId(tabId);
-
-        try {
-            // Start streaming
-            await api.startLogStream(serverId, type, target, tabId);
-            
-            // Set up listener
-            api.onLogOutput(tabId, (data: string) => {
-                setLogTabs(prev => prev.map(t => 
-                    t.id === tabId ? { ...t, logs: t.logs + data, loading: false } : t
-                ));
-            });
-        } catch (err: any) {
-            setLogTabs(prev => prev.map(t => t.id === tabId ? { ...t, logs: 'Error starting stream: ' + err.message, loading: false } : t));
-        }
-    };
-
-    const handleCloseTab = (id: string) => {
-        api.stopLogStream(id);
-        setLogTabs(prev => {
-            const newTabs = prev.filter(t => t.id !== id);
-            if (activeLogTabId === id) {
-                setActiveLogTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null);
-            }
-            return newTabs;
-        });
-    };
-
-    const handleRefreshTab = async (id: string) => {
-        const tab = logTabs.find(t => t.id === id);
-        if (!tab) return;
-
-        // Restart stream to refresh logs (re-tail last 100 lines)
-        setLogTabs(prev => prev.map(t => t.id === id ? { ...t, loading: true, logs: '' } : t));
-        try {
-            await api.stopLogStream(id);
-            await api.startLogStream(serverId, tab.type, tab.target, id);
-        } catch (err: any) {
-            setLogTabs(prev => prev.map(t => t.id === id ? { ...t, logs: 'Error refreshing stream: ' + err.message, loading: false } : t));
-        }
-    };
-
-    const handleClearLogs = (id: string) => {
-        setLogTabs(prev => prev.map(t => t.id === id ? { ...t, logs: '' } : t));
-    };
-
-    const handleSearchLogs = (id: string, term: string) => {
-        setLogTabs(prev => prev.map(t => t.id === id ? { ...t, searchTerm: term, activeMatchIndex: 0 } : t));
-    };
-
-    const handleNavigateSearch = (id: string, direction: 'up' | 'down') => {
-        setLogTabs(prev => prev.map(t => {
-            if (t.id !== id || !t.searchTerm) return t;
-            
-            // Count total matches accurately
-            const matchCount = (t.logs.match(new RegExp(t.searchTerm, 'gi')) || []).length;
-            if (matchCount === 0) return t;
-
-            let nextIndex = t.activeMatchIndex;
-            if (direction === 'up') {
-                nextIndex = (nextIndex - 1 + matchCount) % matchCount;
-            } else {
-                nextIndex = (nextIndex + 1) % matchCount;
-            }
-
-            return { ...t, activeMatchIndex: nextIndex };
-        }));
-    };
     const fetchHealth = async () => {
         setLoading(true);
         try {
@@ -1274,17 +1353,6 @@ const Health: React.FC<{ serverId: string, connected: boolean }> = ({ serverId, 
                 onFetchLogs={fetchLogs}
                 onRefresh={fetchHealth} 
                 loadingId={actionLoading} 
-            />
-
-            <MultiTabLogViewer
-                tabs={logTabs}
-                activeTabId={activeLogTabId}
-                onCloseTab={handleCloseTab}
-                onSelectTab={setActiveLogTabId}
-                onRefreshTab={handleRefreshTab}
-                onClearLogs={handleClearLogs}
-                onSearch={handleSearchLogs}
-                onNavigateSearch={handleNavigateSearch}
             />
         </div>
     );
@@ -1810,6 +1878,90 @@ const ServerDetail: React.FC = () => {
 
     const api = (window as any).api;
 
+    // ── Shared Log Viewer State ──
+    const [logTabs, setLogTabs] = useState<LogTab[]>([]);
+    const [activeLogTabId, setActiveLogTabId] = useState<string | null>(null);
+
+    const fetchLogs = async (type: string, target: string, title: string) => {
+        const tabId = `${type}-${target}`;
+        const existingTab = logTabs.find(t => t.id === tabId);
+        if (existingTab) { setActiveLogTabId(tabId); return; }
+
+        const newTab: LogTab = { id: tabId, title, type, target, logs: '', loading: true, searchTerm: '', activeMatchIndex: 0 };
+        setLogTabs(prev => [...prev, newTab]);
+        setActiveLogTabId(tabId);
+
+        try {
+            await api.startLogStream(server?.id, type, target, tabId);
+            api.onLogOutput(tabId, (data: string) => {
+                setLogTabs(prev => prev.map(t => t.id === tabId ? { ...t, logs: t.logs + data, loading: false } : t));
+            });
+            api.onLogExit(tabId, () => {
+                setLogTabs(prev => prev.map(t => t.id === tabId ? { ...t, loading: false } : t));
+            });
+        } catch (err: any) {
+            setLogTabs(prev => prev.map(t => t.id === tabId ? { ...t, logs: 'Error starting stream: ' + err.message, loading: false } : t));
+        }
+    };
+
+    const fetchScriptLogs = async (command: string, title: string) => {
+        const tabId = `script-${Math.random().toString(36).substr(2, 9)}`;
+        const newTab: LogTab = { id: tabId, title: `Run: ${title}`, type: 'script', target: command, logs: '', loading: true, searchTerm: '', activeMatchIndex: 0 };
+        setLogTabs(prev => [...prev, newTab]);
+        setActiveLogTabId(tabId);
+
+        try {
+            await api.startScriptStream(server?.id, command, tabId);
+            api.onLogOutput(tabId, (data: string) => {
+                setLogTabs(prev => prev.map(t => t.id === tabId ? { ...t, logs: t.logs + data, loading: false } : t));
+            });
+            api.onLogExit(tabId, () => {
+                setLogTabs(prev => prev.map(t => t.id === tabId ? { ...t, loading: false } : t));
+            });
+        } catch (err: any) {
+            setLogTabs(prev => prev.map(t => t.id === tabId ? { ...t, logs: 'Error running script: ' + err.message, loading: false } : t));
+        }
+    };
+
+    const handleCloseTab = (id: string) => {
+        api.stopLogStream(id);
+        setLogTabs(prev => {
+            const newTabs = prev.filter(t => t.id !== id);
+            if (activeLogTabId === id) setActiveLogTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null);
+            return newTabs;
+        });
+    };
+
+    const handleRefreshTab = async (id: string) => {
+        const tab = logTabs.find(t => t.id === id);
+        if (!tab) return;
+        setLogTabs(prev => prev.map(t => t.id === id ? { ...t, loading: true, logs: '' } : t));
+        try {
+            await api.stopLogStream(id);
+            if (tab.type === 'script') {
+                await api.startScriptStream(server?.id, tab.target, id);
+            } else {
+                await api.startLogStream(server?.id, tab.type, tab.target, id);
+            }
+        } catch (err: any) {
+            setLogTabs(prev => prev.map(t => t.id === id ? { ...t, logs: 'Error refreshing stream: ' + err.message, loading: false } : t));
+        }
+    };
+
+    const handleClearLogs = (id: string) => setLogTabs(prev => prev.map(t => t.id === id ? { ...t, logs: '' } : t));
+    const handleSearchLogs = (id: string, term: string) => setLogTabs(prev => prev.map(t => t.id === id ? { ...t, searchTerm: term, activeMatchIndex: 0 } : t));
+    const handleNavigateSearch = (id: string, direction: 'up' | 'down') => {
+        setLogTabs(prev => prev.map(t => {
+            if (t.id !== id || !t.searchTerm) return t;
+            const matchCount = (t.logs.match(new RegExp(t.searchTerm, 'gi')) || []).length;
+            if (matchCount === 0) return t;
+            let nextIndex = t.activeMatchIndex;
+            if (direction === 'up') nextIndex = (nextIndex - 1 + matchCount) % matchCount;
+            else nextIndex = (nextIndex + 1) % matchCount;
+            return { ...t, activeMatchIndex: nextIndex };
+        }));
+    };
+
     const [transfers, setTransfers] = useState<Record<string, any>>({});
 
     useEffect(() => {
@@ -2163,7 +2315,15 @@ const ServerDetail: React.FC = () => {
                                     <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" />
                                 </svg>
                             ),
-                            content: <Commands />
+                            content: <Commands 
+                                server={server} 
+                                onRunScript={fetchScriptLogs}
+                                onUpdateServer={(updates) => {
+                                    api.updateServer(server.id, updates);
+                                    setServer(prev => prev ? { ...prev, ...updates } : null);
+                                }}
+                                triggerAlert={triggerAlert}
+                            />
                         },
                         {
                             id: 'config',
@@ -2183,7 +2343,7 @@ const ServerDetail: React.FC = () => {
                                     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                                 </svg>
                             ),
-                            content: <Health serverId={server.id} connected={connected} />
+                            content: <Health serverId={server.id} connected={connected} fetchLogs={fetchLogs} />
                         },
                         {
                             id: 'apps',
@@ -2368,6 +2528,17 @@ const ServerDetail: React.FC = () => {
                     ))}
                 </div>
             )}
+
+            <MultiTabLogViewer
+                tabs={logTabs}
+                activeTabId={activeLogTabId}
+                onCloseTab={handleCloseTab}
+                onSelectTab={setActiveLogTabId}
+                onRefreshTab={handleRefreshTab}
+                onClearLogs={handleClearLogs}
+                onSearch={handleSearchLogs}
+                onNavigateSearch={handleNavigateSearch}
+            />
         </div>
     );
 };

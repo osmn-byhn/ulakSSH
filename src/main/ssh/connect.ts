@@ -8,7 +8,10 @@ export const connectToServer = (server: Server): Promise<Client> => {
 
         conn.on('ready', () => {
             console.log(`SSH Connection established with ${server.host}`);
-            resolve(conn);
+            // Small delay to stabilize connection before resolving
+            setTimeout(() => {
+                resolve(conn);
+            }, 200);
         }).on('error', (err: Error) => {
             console.error(`SSH Connection Error with ${server.host}:`, err);
             reject(err);
@@ -18,7 +21,10 @@ export const connectToServer = (server: Server): Promise<Client> => {
             host: server.host,
             port: server.port,
             username: server.username,
+            keepaliveInterval: 10000, // 10s
+            readyTimeout: 20000,      // 20s
         };
+
 
         if (server.authType === 'password') {
             connectConfig.password = server.password;

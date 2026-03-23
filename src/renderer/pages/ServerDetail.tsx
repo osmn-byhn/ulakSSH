@@ -3,24 +3,24 @@ import { useParams, useNavigate } from "react-router-dom";
 import Alert from "../components/ui/Alert";
 import NeofetchInfo from "../components/ui/NeofetchInfo";
 import TabSystem from "../components/ui/TabSystem";
-import CodeEditor from "../components/ui/CodeEditor";
+import Modal from "../components/ui/Modal";
 import Editor from "@monaco-editor/react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { 
-    Cpu, 
-    Database, 
-    Activity, 
-    Layers, 
-    Clock, 
-    Gauge, 
-    FolderPlus, 
-    FilePlus, 
-    Edit2, 
-    Trash2, 
-    Copy, 
-    FileCode, 
-    Plus, 
-    Download, 
+import {
+    Cpu,
+    Database,
+    Activity,
+    Layers,
+    Clock,
+    Gauge,
+    FolderPlus,
+    FilePlus,
+    Edit2,
+    Trash2,
+    Copy,
+    FileCode,
+    Plus,
+    Download,
     Upload,
     RefreshCw,
     ArrowRight,
@@ -30,11 +30,20 @@ import {
     Maximize2,
     Search,
     ChevronUp,
-    ChevronDown
+    ChevronDown,
+    ChevronLeft,
+    Home,
+    Settings as SettingsIcon,
+    Shield,
+    Globe,
+    LogOut,
+    Lock,
+    User,
+    Server as ServerIcon
 } from 'lucide-react';
 import HealthDashboard from "../components/health/HealthDashboard";
 import type { AlertType } from "../components/ui/Alert";
-import type { Server } from "../../shared/server";
+import type { Server, Script } from "../../shared/server";
 
 const FolderIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -237,7 +246,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, items }) => {
     }, [onClose]);
 
     return (
-        <div 
+        <div
             className="fixed z-[200] glass rounded-2xl border border-white/10 shadow-2xl overflow-hidden min-w-[180px] animate-fade-in"
             style={{ top: y, left: x }}
         >
@@ -254,8 +263,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, items }) => {
                         }}
                         disabled={item.disabled}
                         className={`flex items-center gap-3 px-3 py-2 text-[10px] font-mono font-bold uppercase tracking-wider transition-all rounded-xl w-full text-left
-                            ${item.disabled ? 'opacity-30 cursor-not-allowed' : 
-                              item.danger ? 'text-rose-400 hover:bg-rose-500/10' : 'text-muted hover:text-white hover:bg-white/5'}
+                            ${item.disabled ? 'opacity-30 cursor-not-allowed' :
+                                item.danger ? 'text-rose-400 hover:bg-rose-500/10' : 'text-muted hover:text-white hover:bg-white/5'}
                         `}
                     >
                         <span className="shrink-0">{item.icon}</span>
@@ -274,7 +283,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
     const [searchQuery, setSearchQuery] = useState('');
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, target: any | null } | null>(null);
     const [clipboard, setClipboard] = useState<{ path: string, type: 'copy' | 'cut', name: string } | null>(null);
-    
+
     // UI Dialog states
     const [showNameDialog, setShowNameDialog] = useState<{ type: 'file' | 'folder' | 'rename', target?: any } | null>(null);
     const [nameInputValue, setNameInputValue] = useState('');
@@ -371,7 +380,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
     const handleDelete = async (item: any) => {
         const fullPath = path.endsWith('/') ? `${path}${item.name}` : `${path}/${item.name}`;
         if (!confirm(`Are you sure you want to delete ${item.isDirectory ? 'directory' : 'file'} "${item.name}"?`)) return;
-        
+
         try {
             const result = await api.deleteRemoteItem(server.id, fullPath, item.isDirectory);
             if (result.success) {
@@ -389,7 +398,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
         if (!newName || newName === item.name) return;
         const oldPath = path.endsWith('/') ? `${path}${item.name}` : `${path}/${item.name}`;
         const newPath = path.endsWith('/') ? `${path}${newName}` : `${path}/${newName}`;
-        
+
         try {
             const result = await api.renameRemoteItem(server.id, oldPath, newPath);
             if (result.success) {
@@ -412,12 +421,12 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
     const handlePaste = async () => {
         if (!clipboard) return;
         const destPath = path.endsWith('/') ? `${path}${clipboard.name}` : `${path}/${clipboard.name}`;
-        
+
         try {
-            const result = clipboard.type === 'copy' 
+            const result = clipboard.type === 'copy'
                 ? await api.copyRemoteItem(server.id, clipboard.path, destPath)
                 : await api.moveRemoteItem(server.id, clipboard.path, destPath);
-                
+
             if (result.success) {
                 triggerAlert(`Successfully ${clipboard.type === 'copy' ? 'copied' : 'moved'} to ${path}`, "info");
                 if (clipboard.type === 'cut') setClipboard(null);
@@ -543,7 +552,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
     const breadcrumbs = path.split('/').filter(p => p);
 
     return (
-        <div 
+        <div
             className="flex flex-col gap-4 animate-fade-in h-[500px] outline-none"
             onContextMenu={(e) => handleContextMenu(e, null)}
             tabIndex={0}
@@ -753,54 +762,54 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                     y={contextMenu.y}
                     onClose={() => setContextMenu(null)}
                     items={[
-                        { 
-                            label: 'New Folder', 
-                            icon: <FolderPlus className="w-4 h-4" />, 
-                            onClick: () => { setShowNameDialog({ type: 'folder' }); setNameInputValue(''); } 
+                        {
+                            label: 'New Folder',
+                            icon: <FolderPlus className="w-4 h-4" />,
+                            onClick: () => { setShowNameDialog({ type: 'folder' }); setNameInputValue(''); }
                         },
-                        { 
-                            label: 'New File', 
-                            icon: <FilePlus className="w-4 h-4" />, 
-                            onClick: () => { setShowNameDialog({ type: 'file' }); setNameInputValue(''); } 
+                        {
+                            label: 'New File',
+                            icon: <FilePlus className="w-4 h-4" />,
+                            onClick: () => { setShowNameDialog({ type: 'file' }); setNameInputValue(''); }
                         },
                         ...(contextMenu.target ? [
-                            { 
-                                label: 'Rename', 
-                                icon: <Edit2 className="w-4 h-4" />, 
-                                onClick: () => { setShowNameDialog({ type: 'rename', target: contextMenu.target }); setNameInputValue(contextMenu.target.name); } 
+                            {
+                                label: 'Rename',
+                                icon: <Edit2 className="w-4 h-4" />,
+                                onClick: () => { setShowNameDialog({ type: 'rename', target: contextMenu.target }); setNameInputValue(contextMenu.target.name); }
                             },
-                            { 
-                                label: 'Import', 
-                                icon: <Download className="w-4 h-4" />, 
-                                onClick: () => handleDownload(contextMenu.target) 
+                            {
+                                label: 'Import',
+                                icon: <Download className="w-4 h-4" />,
+                                onClick: () => handleDownload(contextMenu.target)
                             },
-                            { 
-                                label: 'Copy', 
-                                icon: <Copy className="w-4 h-4" />, 
-                                onClick: () => handleCopyCut(contextMenu.target, 'copy') 
+                            {
+                                label: 'Copy',
+                                icon: <Copy className="w-4 h-4" />,
+                                onClick: () => handleCopyCut(contextMenu.target, 'copy')
                             },
-                            { 
-                                label: 'Cut', 
-                                icon: <FileCode className="w-4 h-4" />, 
-                                onClick: () => handleCopyCut(contextMenu.target, 'cut') 
+                            {
+                                label: 'Cut',
+                                icon: <FileCode className="w-4 h-4" />,
+                                onClick: () => handleCopyCut(contextMenu.target, 'cut')
                             },
-                            { 
-                                label: 'Delete', 
-                                icon: <Trash2 className="w-4 h-4" />, 
+                            {
+                                label: 'Delete',
+                                icon: <Trash2 className="w-4 h-4" />,
                                 onClick: () => handleDelete(contextMenu.target),
-                                danger: true 
+                                danger: true
                             },
                         ] : []),
-                        { 
-                            label: 'Paste', 
-                            icon: <Plus className="w-4 h-4" />, 
+                        {
+                            label: 'Paste',
+                            icon: <Plus className="w-4 h-4" />,
                             onClick: handlePaste,
-                            disabled: !clipboard 
+                            disabled: !clipboard
                         },
-                        { 
-                            label: 'Refresh', 
-                            icon: <Activity className="w-4 h-4" />, 
-                            onClick: () => loadDirectory(path) 
+                        {
+                            label: 'Refresh',
+                            icon: <Activity className="w-4 h-4" />,
+                            onClick: () => loadDirectory(path)
                         },
                     ]}
                 />
@@ -812,12 +821,12 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                     <div className="glass w-full max-w-sm rounded-3xl border border-white/10 shadow-2xl p-6 flex flex-col gap-4 scale-in">
                         <div className="flex items-center gap-3">
                             <div className="p-2.5 rounded-2xl bg-[#06b6d4]/10 text-[#06b6d4]">
-                                {showNameDialog.type === 'folder' ? <FolderPlus className="w-5 h-5" /> : 
-                                 showNameDialog.type === 'file' ? <FilePlus className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
+                                {showNameDialog.type === 'folder' ? <FolderPlus className="w-5 h-5" /> :
+                                    showNameDialog.type === 'file' ? <FilePlus className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
                             </div>
                             <h3 className="text-sm font-bold font-mono uppercase tracking-widest">
-                                {showNameDialog.type === 'folder' ? 'Create Folder' : 
-                                 showNameDialog.type === 'file' ? 'Create File' : 'Rename Item'}
+                                {showNameDialog.type === 'folder' ? 'Create Folder' :
+                                    showNameDialog.type === 'file' ? 'Create File' : 'Rename Item'}
                             </h3>
                         </div>
                         <input
@@ -870,36 +879,294 @@ const Settings: React.FC = () => {
     );
 }
 
-const Commands: React.FC<{ 
-    server: Server, 
-    onRunScript: (command: string, title: string) => void,
+interface RemotePathPickerModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSelect: (path: string, isDir: boolean) => void;
+    serverId: string;
+    initialPath?: string;
+}
+
+const RemotePathPickerModal: React.FC<RemotePathPickerModalProps> = ({ isOpen, onClose, onSelect, serverId, initialPath }) => {
+    const [path, setPath] = useState(initialPath || '/');
+    const [items, setItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const api = (window as any).api;
+
+    useEffect(() => {
+        if (isOpen) {
+            loadDirectory(path);
+        }
+    }, [path, isOpen]);
+
+    const loadDirectory = async (dirPath: string) => {
+        if (!api) return;
+        setLoading(true);
+        try {
+            const result = await api.listDirectory(serverId, dirPath);
+            if (result.error) {
+                console.error("Picker SFTP error:", result.error);
+                setItems([]);
+            } else {
+                const filtered = result.filter((item: any) => item.name !== '.' && item.name !== '..');
+                setItems(filtered);
+            }
+        } catch (err) {
+            console.error("Failed to list directory in picker:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    const breadcrumbs = path.split('/').filter(p => p);
+    const filteredItems = items.filter(item =>
+        item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ).sort((a, b) => {
+        if (a.isDirectory && !b.isDirectory) return -1;
+        if (!a.isDirectory && b.isDirectory) return 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    const handleSelect = (item: any) => {
+        const fullPath = path.endsWith('/') ? `${path}${item.name}` : `${path}/${item.name}`;
+        if (item.isDirectory) {
+            setPath(fullPath);
+        } else {
+            onSelect(fullPath, false);
+            onClose();
+        }
+    };
+
+    const handleConfirmPath = () => {
+        onSelect(path, true);
+        onClose();
+    };
+
+    const goUp = () => {
+        const parts = path.split('/').filter(p => p);
+        if (parts.length === 0) return;
+        parts.pop();
+        setPath('/' + parts.join('/'));
+    };
+
+    return (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+            <div className="glass w-full max-w-2xl h-[70vh] flex flex-col rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
+                {/* Header */}
+                <div className="p-4 px-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-[#06b6d4]/10 text-[#06b6d4]">
+                            <Search className="w-4 h-4" />
+                        </div>
+                        <h3 className="text-sm font-bold font-mono uppercase tracking-widest">Select Remote Path</h3>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-muted hover:text-white transition-all">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Toolbar */}
+                <div className="p-4 border-b border-white/5 flex items-center gap-3">
+                    <button
+                        onClick={goUp}
+                        className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-muted disabled:opacity-20"
+                        disabled={path === '/'}
+                    >
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => setPath('/')}
+                        className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-muted"
+                    >
+                        <Home className="w-4 h-4" />
+                    </button>
+                    <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted" />
+                        <input
+                            type="text"
+                            placeholder="Search in folder..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-[10px] font-mono outline-none focus:border-[#06b6d4]/50"
+                        />
+                    </div>
+                </div>
+
+                {/* Breadcrumbs */}
+                <div className="px-6 py-2 border-b border-white/5 flex items-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide text-[10px] font-mono">
+                    <button onClick={() => setPath('/')} className={path === '/' ? 'text-[#06b6d4]' : 'text-muted'}>ROOT</button>
+                    {breadcrumbs.map((part, i) => (
+                        <React.Fragment key={i}>
+                            <span className="text-white/10">/</span>
+                            <button
+                                onClick={() => setPath('/' + breadcrumbs.slice(0, i + 1).join('/'))}
+                                className={i === breadcrumbs.length - 1 ? 'text-[#06b6d4]' : 'text-muted'}
+                            >
+                                {part}
+                            </button>
+                        </React.Fragment>
+                    ))}
+                </div>
+
+                {/* List Content */}
+                <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+                    {loading ? (
+                        <div className="h-full flex flex-col items-center justify-center gap-2 py-10">
+                            <RefreshCw className="w-6 h-6 text-[#06b6d4] animate-spin" />
+                            <span className="text-[10px] font-mono text-muted uppercase animate-pulse">Reading remote...</span>
+                        </div>
+                    ) : filteredItems.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center py-10 opacity-20">
+                            <FolderIcon className="w-10 h-10" />
+                            <span className="text-[10px] font-mono uppercase tracking-widest mt-2">Folder Empty</span>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-1">
+                            {filteredItems.map((item, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => handleSelect(item)}
+                                    className="flex items-center gap-3 p-2 px-3 rounded-xl border border-transparent hover:border-white/10 hover:bg-white/5 transition-all outline-none text-left group"
+                                >
+                                    {item.isDirectory ? (
+                                        <FolderIcon className="w-4 h-4 text-[#06b6d4]" />
+                                    ) : (
+                                        <FileIcon className="w-4 h-4 text-muted" />
+                                    )}
+                                    <span className="text-[11px] font-mono group-hover:text-white truncate">
+                                        {item.name}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 px-6 border-t border-white/5 flex items-center justify-between bg-white/5">
+                    <div className="flex flex-col overflow-hidden mr-4">
+                        <span className="text-[8px] font-mono text-muted uppercase tracking-widest">Target Path:</span>
+                        <span className="text-[10px] font-mono text-[#06b6d4] truncate">{path}</span>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                        <button onClick={onClose} className="px-6 py-2 rounded-xl text-[10px] font-mono font-bold uppercase tracking-widest text-muted hover:text-white transition-all">
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleConfirmPath}
+                            className="px-6 py-2 rounded-xl bg-[#06b6d4] text-black text-[10px] font-mono font-bold uppercase tracking-widest"
+                        >
+                            Select Direction
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const LANGUAGES = [
+    { label: 'Bash', value: 'bash', ext: 'sh' },
+    { label: 'Python', value: 'python', ext: 'py' },
+    { label: 'Node.js', value: 'javascript', ext: 'js' },
+    { label: 'Go', value: 'go', ext: 'go' },
+    { label: 'Rust', value: 'rust', ext: 'rs' },
+    { label: 'PHP', value: 'php', ext: 'php' },
+    { label: 'Perl', value: 'perl', ext: 'pl' },
+    { label: 'Ruby', value: 'ruby', ext: 'rb' },
+    { label: 'Lua', value: 'lua', ext: 'lua' },
+    { label: 'Java', value: 'java', ext: 'java' },
+    { label: 'C++', value: 'cpp', ext: 'cpp' },
+    { label: 'C', value: 'c', ext: 'c' },
+    { label: 'R', value: 'r', ext: 'r' },
+    { label: 'SQL', value: 'sql', ext: 'sql' },
+    { label: 'Plain Text', value: 'text', ext: 'txt' },
+];
+
+const ScriptsManager: React.FC<{
+    server: Server,
+    onRunScript: (script: Script, title: string) => void,
     onUpdateServer: (updates: Partial<Server>) => void,
     triggerAlert: (msg: string, type: AlertType) => void
 }> = ({ server, onRunScript, onUpdateServer, triggerAlert }) => {
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [newScript, setNewScript] = useState({ name: '', command: '', color: '#06b6d4' });
+    const [showModal, setShowModal] = useState<{ type: 'add' | 'edit', script?: Script } | null>(null);
+    const [scriptForm, setScriptForm] = useState<Partial<Script>>({ name: '', content: '', language: 'bash', color: '#06b6d4', remotePath: '' });
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
 
-    const handleAddScript = () => {
-        if (!newScript.name || !newScript.command) {
-            triggerAlert("Name and command are required", "error");
-            return;
+    // Auto-append extension to name when language changes
+    useEffect(() => {
+        if (!scriptForm.name) return;
+        const currentExt = LANGUAGES.find(l => l.value === scriptForm.language)?.ext;
+        if (!currentExt) return;
+
+        const dotIndex = scriptForm.name.lastIndexOf('.');
+        const nameWithoutExt = dotIndex > -1 ? scriptForm.name.substring(0, dotIndex) : scriptForm.name;
+
+        if (nameWithoutExt && !scriptForm.name.endsWith(`.${currentExt}`)) {
+            setScriptForm(prev => ({ ...prev, name: `${nameWithoutExt}.${currentExt}` }));
         }
-        const script: Script = {
-            id: Math.random().toString(36).substr(2, 9),
-            ...newScript
-        };
-        const updatedScripts = [...(server.scripts || []), script];
-        onUpdateServer({ scripts: updatedScripts });
-        setNewScript({ name: '', command: '', color: '#06b6d4' });
-        setShowAddModal(false);
-        triggerAlert("Script added", "success");
+    }, [scriptForm.language]);
+
+    const handleOpenModal = (type: 'add' | 'edit', script?: Script) => {
+        if (type === 'edit' && script) {
+            setScriptForm({ ...script });
+        } else {
+            setScriptForm({ name: '', content: '#!/bin/bash\n\necho "Hello from UlakSSH"', language: 'bash', color: '#06b6d4', remotePath: '' });
+        }
+        setShowModal({ type, script });
     };
 
-    const handleDeleteScript = (id: string) => {
+    const handleSaveScript = () => {
+        if (!scriptForm.name || !scriptForm.content) {
+            triggerAlert("Name and content are required", "error");
+            return;
+        }
+
+        let updatedScripts: Script[] = [...(server.scripts || [])];
+
+        if (showModal?.type === 'edit' && showModal.script) {
+            updatedScripts = updatedScripts.map(s => s.id === showModal.script?.id ? { ...s, ...scriptForm } as Script : s);
+            triggerAlert("Script updated", "success");
+        } else {
+            const newScript: Script = {
+                id: Math.random().toString(36).substr(2, 9),
+                name: scriptForm.name || '',
+                content: scriptForm.content || '',
+                language: scriptForm.language || 'bash',
+                color: scriptForm.color || '#06b6d4',
+                remotePath: scriptForm.remotePath,
+                command: scriptForm.command
+            };
+            updatedScripts.push(newScript);
+            triggerAlert("Script added", "success");
+        }
+
+        onUpdateServer({ scripts: updatedScripts });
+        setShowModal(null);
+    };
+
+    const handleDeleteScript = async (id: string) => {
         if (!confirm("Are you sure you want to delete this script?")) return;
+
+        const scriptToDelete = (server.scripts || []).find(s => s.id === id);
+        if (scriptToDelete?.remotePath) {
+            try {
+                // Use the existing deleteRemoteItem API
+                await (window as any).api.deleteRemoteItem(server.id, scriptToDelete.remotePath, false);
+                triggerAlert("Remote file deleted", "info");
+            } catch (err) {
+                console.error("Failed to delete remote script:", err);
+                // We proceed with UI deletion anyway, but notify the user
+                triggerAlert("Failed to delete remote file, but script removed from list", "info");
+            }
+        }
+
         const updatedScripts = (server.scripts || []).filter(s => s.id !== id);
         onUpdateServer({ scripts: updatedScripts });
-        triggerAlert("Script deleted", "info");
+        triggerAlert("Script removed", "info");
     };
 
     return (
@@ -907,10 +1174,10 @@ const Commands: React.FC<{
             <div className="flex items-center justify-between">
                 <div>
                     <h3 className="text-sm font-mono font-bold uppercase tracking-widest text-white/90">Custom Scripts</h3>
-                    <p className="text-[10px] font-mono text-muted uppercase tracking-widest mt-1">Automate your terminal workflows</p>
+                    <p className="text-[10px] font-mono text-muted uppercase tracking-widest mt-1">Cross-platform automation scripts</p>
                 </div>
                 <button
-                    onClick={() => setShowAddModal(true)}
+                    onClick={() => handleOpenModal('add')}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#06b6d4]/10 border border-[#06b6d4]/30 hover:bg-[#06b6d4]/20 text-[#06b6d4] transition-all group"
                 >
                     <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
@@ -920,50 +1187,69 @@ const Commands: React.FC<{
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {(server.scripts || []).map((script) => (
-                    <div 
+                    <div
                         key={script.id}
-                        className="glass relative group overflow-hidden rounded-2xl border border-white/5 hover:border-white/10 transition-all p-4 flex flex-col gap-3 h-32"
+                        className="glass relative group overflow-hidden rounded-2xl border border-white/5 hover:border-white/10 transition-all p-4 flex flex-col gap-3 h-40"
                     >
-                        {/* Color accent */}
-                        <div 
+                        <div
                             className="absolute top-0 left-0 w-full h-1 opacity-50"
                             style={{ background: script.color }}
                         />
-                        
+
                         <div className="flex items-start justify-between">
                             <div className="flex flex-col overflow-hidden">
                                 <span className="text-[10px] font-mono font-bold text-white/90 truncate">{script.name}</span>
-                                <span className="text-[8px] font-mono text-muted uppercase tracking-[0.2em] mt-0.5 truncate">{script.command}</span>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-muted uppercase tracking-wider">{script.language}</span>
+                                    {script.remotePath && (
+                                        <span className="text-[8px] font-mono text-[#06b6d4] uppercase tracking-tighter truncate max-w-[100px]" title={script.remotePath}>
+                                            Persistent: {script.remotePath.split('/').pop()}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                            <button 
-                                onClick={() => handleDeleteScript(script.id)}
-                                className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 text-muted hover:text-rose-500 rounded-lg transition-all"
-                            >
-                                <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={() => handleOpenModal('edit', script)}
+                                    className="p-1.5 hover:bg-white/10 text-muted hover:text-white rounded-lg transition-all"
+                                    title="Edit Script"
+                                >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteScript(script.id)}
+                                    className="p-1.5 hover:bg-rose-500/10 text-muted hover:text-rose-500 rounded-lg transition-all"
+                                    title="Delete Script"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="flex-1" />
+                        <div className="flex-1 overflow-hidden">
+                            <p className="text-[9px] font-mono text-muted/60 line-clamp-3 leading-relaxed">
+                                {script.content.substring(0, 100)}{script.content.length > 100 ? '...' : ''}
+                            </p>
+                        </div>
 
                         <div className="flex items-center justify-between">
                             <div className="flex gap-1">
                                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: script.color }} />
                             </div>
                             <button
-                                onClick={() => onRunScript(script.command, script.name)}
+                                onClick={() => onRunScript(script, script.name || 'Unnamed Script')}
                                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white transition-all active:scale-95 group/btn"
                             >
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-[#06b6d4] transition-transform group-hover/btn:scale-110">
                                     <path d="M5 3l14 9-14 9V3z" />
                                 </svg>
-                                <span className="text-[9px] font-black font-mono uppercase tracking-widest">Run</span>
+                                <span className="text-[9px] font-black font-mono uppercase tracking-widest">Execute</span>
                             </button>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Empty State */}
             {(!server.scripts || server.scripts.length === 0) && (
                 <div className="flex flex-col items-center justify-center py-20 opacity-20 gap-4 border-2 border-dashed border-white/10 rounded-3xl">
                     <FileCode className="w-12 h-12" />
@@ -971,127 +1257,489 @@ const Commands: React.FC<{
                 </div>
             )}
 
-            {/* Add Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-                    <div className="glass w-full max-w-md p-6 rounded-3xl border border-white/10 shadow-2xl flex flex-col gap-6">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-mono font-bold uppercase tracking-widest text-white/90">Create Script</h3>
-                            <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-white/5 rounded-full text-muted hover:text-white transition-all">
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Script Name</label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Docker status"
-                                    value={newScript.name}
-                                    onChange={(e) => setNewScript({ ...newScript, name: e.target.value })}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all"
-                                />
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Bash Command</label>
-                                <textarea
-                                    placeholder="e.g. docker ps -a"
-                                    value={newScript.command}
-                                    onChange={(e) => setNewScript({ ...newScript, command: e.target.value })}
-                                    className="w-full h-24 bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all resize-none"
-                                />
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Accent Color</label>
-                                <div className="flex gap-3">
-                                    {['#06b6d4', '#10b981', '#a855f7', '#f43f5e', '#fbbf24', '#3b82f6'].map(color => (
-                                        <button
-                                            key={color}
-                                            onClick={() => setNewScript({ ...newScript, color })}
-                                            className={`w-6 h-6 rounded-lg transition-all ${newScript.color === color ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : 'hover:scale-110'}`}
-                                            style={{ backgroundColor: color }}
-                                        />
-                                    ))}
+            {showModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+                    <div className="glass w-full max-w-4xl h-[80vh] flex flex-col rounded-3xl overflow-hidden border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                        <div className="p-4 px-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+                            <div className="flex items-center gap-4">
+                                <div className="p-2.5 rounded-2xl bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20">
+                                    <FileCode className="w-5 h-5" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <h3 className="text-sm font-bold tracking-tight text-white/90">
+                                        {showModal.type === 'edit' ? 'Edit Script' : 'Create New Script'}
+                                    </h3>
+                                    <p className="text-[10px] font-mono text-muted uppercase tracking-widest">Configure your automation logic</p>
                                 </div>
                             </div>
+                            <button onClick={() => setShowModal(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full text-muted hover:text-white transition-all">
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
 
-                        <div className="flex gap-3 mt-2">
-                            <button
-                                onClick={() => setShowAddModal(false)}
-                                className="flex-1 py-3 rounded-2xl text-[10px] font-black font-mono tracking-widest uppercase text-muted hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleAddScript}
-                                className="flex-1 py-3 rounded-2xl bg-[#06b6d4] hover:bg-[#06b6d4]/80 text-black text-[10px] font-black font-mono tracking-widest uppercase shadow-[0_0_30px_rgba(6,182,212,0.2)] transition-all"
-                            >
-                                Save Script
-                            </button>
+                        <div className="flex-1 flex overflow-hidden">
+                            <div className="w-80 border-r border-white/5 p-6 flex flex-col gap-5 overflow-y-auto scrollbar-thin">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Script Name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Check Disk Usage"
+                                        value={scriptForm.name}
+                                        onChange={(e) => setScriptForm({ ...scriptForm, name: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all text-white"
+                                    />
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Language</label>
+                                    <select
+                                        value={scriptForm.language}
+                                        onChange={(e) => setScriptForm({ ...scriptForm, language: e.target.value })}
+                                        className="w-full bg-white/10 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all text-white appearance-none cursor-pointer"
+                                    >
+                                        {LANGUAGES.map(lang => (
+                                            <option key={lang.value} value={lang.value} className="bg-[#0f172a]">{lang.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Remote Path (Optional)</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. /home/user/myscript.sh"
+                                            value={scriptForm.remotePath}
+                                            onChange={(e) => setScriptForm({ ...scriptForm, remotePath: e.target.value })}
+                                            className="flex-1 bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all text-white"
+                                        />
+                                        <button
+                                            onClick={() => setIsPickerOpen(true)}
+                                            className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-muted hover:text-[#06b6d4] transition-all"
+                                            title="Browse Remote Filesystem"
+                                        >
+                                            <Search className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <p className="text-[8px] text-muted-foreground/50 leading-relaxed italic">
+                                        If left empty, the script will be executed temporarily and deleted afterward.
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Execution Command (Optional)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. bash, python3, php, sudo bash"
+                                        value={scriptForm.command}
+                                        onChange={(e) => setScriptForm({ ...scriptForm, command: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all text-white"
+                                    />
+                                    <p className="text-[8px] text-muted-foreground/50 leading-relaxed italic">
+                                        Optional: Specify the interpreter. Leave empty to auto-detect based on extension.
+                                        Prefix with <span className="text-[#06b6d4]">sudo</span> for root privileges.
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[9px] font-mono text-muted uppercase tracking-widest ml-1">Accent Color</label>
+                                    <div className="flex flex-wrap gap-2.5">
+                                        {['#06b6d4', '#10b981', '#a855f7', '#f43f5e', '#fbbf24', '#3b82f6'].map(color => (
+                                            <button
+                                                key={color}
+                                                onClick={() => setScriptForm({ ...scriptForm, color })}
+                                                className={`w-7 h-7 rounded-lg transition-all ${scriptForm.color === color ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : 'hover:scale-110 border border-white/5'}`}
+                                                style={{ backgroundColor: color }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 flex flex-col overflow-hidden bg-black/40">
+                                <div className="flex items-center justify-between px-6 py-2 bg-white/5 border-b border-white/5">
+                                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#06b6d4]">Script Editor</span>
+                                    <span className="text-[8px] font-mono text-muted uppercase">Line numbers enabled</span>
+                                </div>
+                                <Editor
+                                    height="100%"
+                                    theme="vs-dark"
+                                    language={scriptForm.language === 'bash' ? 'shell' : scriptForm.language}
+                                    value={scriptForm.content}
+                                    onChange={(val) => setScriptForm({ ...scriptForm, content: val || '' })}
+                                    options={{
+                                        minimap: { enabled: false },
+                                        fontSize: 13,
+                                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                        padding: { top: 20 },
+                                        automaticLayout: true,
+                                        scrollBeyondLastLine: false,
+                                        renderLineHighlight: 'all',
+                                    }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="p-4 px-6 border-t border-white/5 flex items-center justify-between bg-white/5">
+                            <p className="text-[9px] font-mono text-muted uppercase hidden sm:block">
+                                Scripts are stored locally and encrypted
+                            </p>
+                            <div className="flex gap-3 w-full sm:w-auto">
+                                <button
+                                    onClick={() => setShowModal(null)}
+                                    className="flex-1 sm:flex-none px-8 py-3 rounded-2xl text-[10px] font-black font-mono tracking-widest uppercase text-muted hover:text-white transition-all"
+                                >
+                                    Discard
+                                </button>
+                                <button
+                                    onClick={handleSaveScript}
+                                    className="flex-1 sm:flex-none px-10 py-3 rounded-2xl bg-[#06b6d4] hover:bg-[#06b6d4]/80 text-black text-[10px] font-black font-mono tracking-widest uppercase shadow-[0_0_30px_rgba(6,182,212,0.2)] transition-all flex items-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+                                    </svg>
+                                    {showModal.type === 'edit' ? 'Update Script' : 'Save Script'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
+
+            <RemotePathPickerModal
+                isOpen={isPickerOpen}
+                onClose={() => setIsPickerOpen(false)}
+                onSelect={(selectedPath, isDir) => {
+                    setScriptForm({ ...scriptForm, remotePath: selectedPath });
+                }}
+                serverId={server.id}
+                initialPath={scriptForm.remotePath || '/'}
+            />
         </div>
     );
 }
 
-const Configs: React.FC<{ server: Server, triggerAlert: (message: string, type: AlertType) => void }> = ({ server, triggerAlert }) => {
+const ServerEditModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    server: Server;
+    onSave: (updatedServer: Server) => Promise<void>;
+}> = ({ isOpen, onClose, server, onSave }) => {
+    const [formData, setFormData] = useState<Server>({ ...server });
+    const [isSaving, setIsSaving] = useState(false);
+    const api = (window as any).api;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            await onSave(formData);
+            onClose();
+        } catch (err) {
+            alert("Failed to save server changes");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleFilePick = async () => {
+        if (!api?.pickFile) return;
+        const filePath = await api.pickFile();
+        if (filePath) {
+            setFormData(prev => ({ ...prev, privateKeyPath: filePath }));
+            const content = await api.readFile(filePath);
+            if (content) setFormData(prev => ({ ...prev, privateKey: content }));
+        }
+    };
+
+    const inputCls = "w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all text-white placeholder:text-muted/30";
+    const labelCls = "text-[9px] font-mono text-muted uppercase tracking-widest ml-1";
+
     return (
-        <div className="glass rounded-2xl p-6 flex flex-col gap-6" style={{ background: 'rgba(8, 11, 22, 0.9)', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="flex flex-col gap-4">
-                    <h3 className="text-sm font-mono font-bold uppercase tracking-widest text-[#06b6d4]">Connection</h3>
+        <Modal isOpen={isOpen} onClose={onClose} title="Edit Server Configuration">
+            <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-2">
-                        <div className="flex justify-between text-xs font-mono">
-                            <span className="text-muted">ID</span>
-                            <span className="text-primary">{server.id}</span>
+                        <label className={labelCls}>Alias / Name</label>
+                        <input
+                            type="text"
+                            value={formData.name}
+                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                            className={inputCls}
+                            placeholder="e.g. Production"
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <label className={labelCls}>Username *</label>
+                        <input
+                            type="text"
+                            value={formData.username}
+                            onChange={e => setFormData({ ...formData, username: e.target.value })}
+                            className={inputCls}
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-4">
+                    <div className="col-span-3 flex flex-col gap-2">
+                        <label className={labelCls}>Host *</label>
+                        <input
+                            type="text"
+                            value={formData.host}
+                            onChange={e => setFormData({ ...formData, host: e.target.value })}
+                            className={inputCls}
+                            required
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <label className={labelCls}>Port</label>
+                        <input
+                            type="number"
+                            value={formData.port}
+                            onChange={e => setFormData({ ...formData, port: parseInt(e.target.value) || 22 })}
+                            className={inputCls}
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Auth Method</label>
+                    <div className="flex p-1 rounded-xl gap-1 bg-black/40 border border-white/5">
+                        {(['password', 'key'] as const).map(t => (
+                            <button
+                                key={t}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, authType: t })}
+                                className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                                    formData.authType === t
+                                        ? 'bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20'
+                                        : 'text-muted border border-transparent hover:text-white'
+                                }`}
+                            >
+                                {t === 'password' ? '🔑 Password' : '🗝 SSH Key'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {formData.authType === 'password' ? (
+                    <div className="flex flex-col gap-2 animate-fade-in">
+                        <label className={labelCls}>Password</label>
+                        <input
+                            type="password"
+                            value={formData.password || ''}
+                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                            className={inputCls}
+                            placeholder="••••••••"
+                        />
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-4 animate-fade-in">
+                        <div className="flex flex-col gap-2">
+                            <label className={labelCls}>Private Key File</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={formData.privateKeyPath || ''}
+                                    onChange={e => setFormData({ ...formData, privateKeyPath: e.target.value })}
+                                    className={inputCls}
+                                    placeholder="~/.ssh/id_rsa"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleFilePick}
+                                    className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
+                                >
+                                    Browse
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex justify-between text-xs font-mono">
-                            <span className="text-muted">Host</span>
-                            <span className="text-primary">{server.host}</span>
+                        <div className="flex flex-col gap-2">
+                            <label className={labelCls}>Passphrase (Optional)</label>
+                            <input
+                                type="password"
+                                value={formData.passphrase || ''}
+                                onChange={e => setFormData({ ...formData, passphrase: e.target.value })}
+                                className={inputCls}
+                                placeholder="••••••••"
+                            />
                         </div>
-                        <div className="flex justify-between text-xs font-mono">
-                            <span className="text-muted">Port</span>
-                            <span className="text-primary">{server.port}</span>
+                    </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-6 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest text-muted hover:text-white transition-all"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="px-8 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-500 text-black hover:bg-emerald-400 disabled:opacity-50 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
+                    >
+                        {isSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+const ServerSettings: React.FC<{
+    server: Server;
+    onEdit: () => void;
+    onDelete: () => void;
+    onUpdateColor: (color: string) => void;
+}> = ({ server, onEdit, onDelete, onUpdateColor }) => {
+    return (
+        <div className="flex flex-col gap-6 animate-fade-in pr-2 overflow-y-auto scrollbar-thin max-h-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Connection Info */}
+                <div className="glass rounded-3xl p-6 border border-white/5 flex flex-col gap-6 bg-white/[0.02]">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-2xl bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20">
+                            <SettingsIcon className="w-4 h-4" />
+                        </div>
+                        <h3 className="text-xs font-black font-mono tracking-widest uppercase text-white/90">Network Identity</h3>
+                    </div>
+                    
+                    <div className="flex flex-col gap-4">
+                        <div className="flex justify-between items-center group">
+                            <span className="text-[10px] font-mono text-muted uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-[#06b6d4]/50" />
+                                Host Address
+                            </span>
+                            <span className="text-sm font-mono text-white group-hover:text-[#06b6d4] transition-colors">{server.host}</span>
+                        </div>
+                        <div className="flex justify-between items-center group">
+                            <span className="text-[10px] font-mono text-muted uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-[#06b6d4]/50" />
+                                Connection Port
+                            </span>
+                            <span className="text-sm font-mono text-white group-hover:text-[#06b6d4] transition-colors">{server.port}</span>
+                        </div>
+                        <div className="flex justify-between items-center group">
+                            <span className="text-[10px] font-mono text-muted uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-[#06b6d4]/50" />
+                                Server UID
+                            </span>
+                            <span className="text-[10px] font-mono text-muted/50 select-all group-hover:text-white transition-colors">{server.id}</span>
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-col gap-4">
-                    <h3 className="text-sm font-mono font-bold uppercase tracking-widest text-[#a855f7]">Security</h3>
-                    <div className="flex flex-col gap-2">
-                        <div className="flex justify-between text-xs font-mono">
-                            <span className="text-muted">User</span>
-                            <span className="text-primary">{server.username}</span>
+
+                {/* Security Info */}
+                <div className="glass rounded-3xl p-6 border border-white/5 flex flex-col gap-6 bg-white/[0.02]">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-2xl bg-[#a855f7]/10 text-[#a855f7] border border-[#a855f7]/20">
+                            <Shield className="w-4 h-4" />
                         </div>
-                        <div className="flex justify-between text-xs font-mono">
-                            <span className="text-muted">Auth</span>
-                            <span className="text-primary uppercase">{server.authType}</span>
+                        <h3 className="text-xs font-black font-mono tracking-widest uppercase text-white/90">Access Protocol</h3>
+                    </div>
+                    
+                    <div className="flex flex-col gap-4">
+                        <div className="flex justify-between items-center group">
+                            <span className="text-[10px] font-mono text-muted uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-[#a855f7]/50" />
+                                Auth Username
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <User className="w-3 h-3 text-[#a855f7]/50" />
+                                <span className="text-sm font-mono text-white group-hover:text-[#a855f7] transition-colors">{server.username}</span>
+                            </div>
                         </div>
-                        <div className="flex justify-between text-xs font-mono">
-                            <span className="text-muted">OS</span>
-                            <span className="text-primary capitalize">{server.os || 'Linux'}</span>
+                        <div className="flex justify-between items-center group">
+                            <span className="text-[10px] font-mono text-muted uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-[#a855f7]/50" />
+                                Authentication
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <Lock className="w-3 h-3 text-[#a855f7]/50" />
+                                <span className="text-[10px] font-mono font-bold text-white uppercase tracking-tighter group-hover:text-[#a855f7] transition-colors">{server.authType === 'key' ? 'RSA Public Key' : 'Standard Password'}</span>
+                            </div>
+                        </div>
+                        <div className="flex justify-between items-center group">
+                            <span className="text-[10px] font-mono text-muted uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-[#a855f7]/50" />
+                                Remote OS
+                            </span>
+                            <span className="text-[10px] font-mono font-bold text-white uppercase tracking-tighter group-hover:text-[#a855f7] transition-colors">{server.os || 'Linux'} Platform</span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div className="h-px bg-white/5" />
-            <div className="flex justify-end gap-3">
-                <button
-                    className="px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-muted hover:text-white hover:bg-white/5 transition-all"
-                    onClick={() => triggerAlert("Edit mode coming soon", "info")}
-                >
-                    Edit Configuration
-                </button>
+
+            {/* Actions Card */}
+            <div className="glass rounded-3xl p-8 border border-white/5 flex flex-col gap-8 bg-white/[0.01]">
+                <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1">
+                        <h3 className="text-sm font-black font-mono tracking-widest uppercase text-white">Management console</h3>
+                        <p className="text-[10px] font-mono text-muted italic">Configure local behavior and connection metadata</p>
+                    </div>
+                    <div className="flex gap-4">
+                        <button
+                            onClick={onEdit}
+                            className="flex items-center gap-2.5 px-6 py-2.5 rounded-2xl bg-white/5 hover:bg-[#06b6d4]/10 text-white hover:text-[#06b6d4] border border-white/10 hover:border-[#06b6d4]/20 transition-all text-[10px] font-bold uppercase tracking-widest shadow-xl font-mono"
+                        >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            Update Configuration
+                        </button>
+                    </div>
+                </div>
+
+                <div className="h-px bg-white/5" />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                            <h4 className="text-[10px] font-black font-mono tracking-[0.2em] uppercase text-rose-500">Danger Zone</h4>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <p className="text-[10px] font-mono text-muted leading-relaxed">
+                                Purging this bridge will remove all session history, saved scripts, and terminal logs for this specific infrastructure node. This action cannot be reversed.
+                            </p>
+                            <button
+                                onClick={onDelete}
+                                className="w-full flex items-center justify-center gap-2.5 px-6 py-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 transition-all text-xs font-black uppercase tracking-widest shadow-xl group font-mono"
+                            >
+                                <Trash2 className="w-4 h-4 transform group-hover:rotate-12 transition-transform" />
+                                Purge Remote Bridge
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                            <h4 className="text-[10px] font-black font-mono tracking-[0.2em] uppercase text-indigo-400">Environment Theme</h4>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <p className="text-[10px] font-mono text-muted leading-relaxed">
+                                Change the accent color used across terminal views, telemetry charts, and navigation elements for this server.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {['#06b6d4', '#7c3aed', '#f43f5e', '#10b981', '#f59e0b', '#3b82f6', '#ec4899', '#ffffff'].map(c => (
+                                    <button
+                                        key={c}
+                                        onClick={() => onUpdateColor(c)}
+                                        style={{ backgroundColor: c }}
+                                        className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${server.color === c ? 'border-white ring-2 ring-white/20' : 'border-black/50'}`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
-}
-
+};
 interface LogTab {
     id: string;
     title: string;
@@ -1116,7 +1764,7 @@ const MultiTabLogViewer: React.FC<{
     const [isExpanded, setIsExpanded] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     const activeMatchRef = useRef<HTMLSpanElement>(null);
-    
+
     const activeTab = tabs.find((t: LogTab) => t.id === activeTabId) || tabs[0];
 
     // Scroll active match into view
@@ -1137,15 +1785,14 @@ const MultiTabLogViewer: React.FC<{
                         <button
                             key={tab.id}
                             onClick={() => onSelectTab(tab.id)}
-                            className={`flex items-center gap-2 px-4 h-8 rounded-t-xl text-[10px] font-mono font-black uppercase tracking-widest transition-all ${
-                                activeTabId === tab.id 
-                                    ? 'bg-[#06b6d4] text-black shadow-[0_0_20px_rgba(6,182,212,0.3)]' 
-                                    : 'text-muted hover:text-white hover:bg-white/5'
-                            }`}
+                            className={`flex items-center gap-2 px-4 h-8 rounded-t-xl text-[10px] font-mono font-black uppercase tracking-widest transition-all ${activeTabId === tab.id
+                                ? 'bg-[#06b6d4] text-black shadow-[0_0_20px_rgba(6,182,212,0.3)]'
+                                : 'text-muted hover:text-white hover:bg-white/5'
+                                }`}
                         >
                             <Terminal className="w-3 h-3" />
                             <span className="max-w-[120px] truncate">{tab.title}</span>
-                            <div 
+                            <div
                                 onClick={(e) => { e.stopPropagation(); onCloseTab(tab.id); }}
                                 className="p-0.5 hover:bg-black/20 rounded-md transition-all"
                             >
@@ -1166,19 +1813,19 @@ const MultiTabLogViewer: React.FC<{
                         />
                         {activeTab.searchTerm && (
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                <button 
+                                <button
                                     onClick={() => onNavigateSearch(activeTab.id, 'up')}
                                     className="p-1 hover:bg-white/10 rounded-md transition-all text-muted hover:text-white"
                                 >
                                     <ChevronUp className="w-2.5 h-2.5" />
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => onNavigateSearch(activeTab.id, 'down')}
                                     className="p-1 hover:bg-white/10 rounded-md transition-all text-muted hover:text-white"
                                 >
                                     <ChevronDown className="w-2.5 h-2.5" />
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => onSearch(activeTab.id, '')}
                                     className="p-1 hover:bg-white/10 rounded-md transition-all text-muted hover:text-white"
                                 >
@@ -1205,7 +1852,7 @@ const MultiTabLogViewer: React.FC<{
                     </div>
                 ) : activeTab.logs ? (
                     <div className="relative group">
-                        <button 
+                        <button
                             onClick={() => onClearLogs(activeTab.id)}
                             className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 bg-white/5 hover:bg-rose-500/20 text-muted hover:text-rose-500 rounded-xl transition-all border border-white/10"
                         >
@@ -1214,13 +1861,13 @@ const MultiTabLogViewer: React.FC<{
                         <pre className="whitespace-pre-wrap break-all text-white/80 selection:bg-[#06b6d4]/30">
                             {(() => {
                                 if (activeTab.searchTerm.length < 3) return activeTab.logs;
-                                
+
                                 let matchCounter = 0;
                                 const lines = activeTab.logs.split('\n');
-                                const filteredLines = lines.filter((line: string) => 
+                                const filteredLines = lines.filter((line: string) =>
                                     line.toLowerCase().includes(activeTab.searchTerm.toLowerCase())
                                 );
-                                
+
                                 if (filteredLines.length === 0) {
                                     return <span className="text-muted/30 italic">No matches found for "{activeTab.searchTerm}"</span>;
                                 }
@@ -1234,14 +1881,13 @@ const MultiTabLogViewer: React.FC<{
                                                     matchCounter++;
                                                     const isCurrent = (matchCounter - 1) === activeTab.activeMatchIndex;
                                                     return (
-                                                        <mark 
-                                                            key={i} 
+                                                        <mark
+                                                            key={i}
                                                             ref={isCurrent ? activeMatchRef : null}
-                                                            className={`px-0.5 rounded-sm font-bold transition-all ${
-                                                                isCurrent 
-                                                                    ? 'bg-[#06b6d4] text-black shadow-[0_0_15px_#06b6d4] ring-1 ring-white/50' 
-                                                                    : 'bg-amber-400/30 text-amber-200'
-                                                            }`}
+                                                            className={`px-0.5 rounded-sm font-bold transition-all ${isCurrent
+                                                                ? 'bg-[#06b6d4] text-black shadow-[0_0_15px_#06b6d4] ring-1 ring-white/50'
+                                                                : 'bg-amber-400/30 text-amber-200'
+                                                                }`}
                                                         >
                                                             {part}
                                                         </mark>
@@ -1262,7 +1908,7 @@ const MultiTabLogViewer: React.FC<{
                     </div>
                 )}
             </div>
-            
+
             {/* Footer Status */}
             <div className="h-6 px-4 flex items-center justify-between bg-white/[0.02] border-t border-white/5">
                 <div className="flex items-center gap-3">
@@ -1283,15 +1929,15 @@ const MultiTabLogViewer: React.FC<{
     );
 };
 
-const Health: React.FC<{ 
-    serverId: string, 
+const Health: React.FC<{
+    serverId: string,
     connected: boolean,
     fetchLogs: (type: string, target: string, title: string) => Promise<void>
 }> = ({ serverId, connected, fetchLogs }) => {
     const [status, setStatus] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    
+
     const api = (window as any).api;
 
     const fetchHealth = async () => {
@@ -1347,12 +1993,12 @@ const Health: React.FC<{
 
     return (
         <div className="h-full">
-            <HealthDashboard 
-                status={status} 
-                onAction={handleAction} 
+            <HealthDashboard
+                status={status}
+                onAction={handleAction}
                 onFetchLogs={fetchLogs}
-                onRefresh={fetchHealth} 
-                loadingId={actionLoading} 
+                onRefresh={fetchHealth}
+                loadingId={actionLoading}
             />
         </div>
     );
@@ -1365,7 +2011,7 @@ const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg:
     const [checkingUpdates, setCheckingUpdates] = useState(false);
     const [updatingPkg, setUpdatingPkg] = useState<string | null>(null);
     const [activeSubTab, setActiveSubTab] = useState<'main' | 'thirdParty' | 'packages'>('main');
-    
+
     const api = (window as any).api;
 
     useEffect(() => {
@@ -1436,9 +2082,9 @@ const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg:
     const mainApps = apps.filter(a => a.type === 'system');
     const thirdPartyApps = apps.filter(a => a.type === 'other');
     const packageApps = apps.filter(a => ['python', 'node', 'php', 'ruby', 'rust'].includes(a.type));
-    
-    const currentApps = activeSubTab === 'main' ? mainApps : 
-                        activeSubTab === 'thirdParty' ? thirdPartyApps : packageApps;
+
+    const currentApps = activeSubTab === 'main' ? mainApps :
+        activeSubTab === 'thirdParty' ? thirdPartyApps : packageApps;
 
     return (
         <div className="h-full overflow-y-auto pr-2 scrollbar-thin flex flex-col gap-4 animate-fade-in">
@@ -1466,7 +2112,7 @@ const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg:
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <button 
+                    <button
                         onClick={checkUpdates}
                         disabled={checkingUpdates}
                         className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all text-[10px] font-mono font-bold uppercase tracking-widest disabled:opacity-50"
@@ -1474,7 +2120,7 @@ const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg:
                         {checkingUpdates ? <div className="w-3 h-3 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                         {checkingUpdates ? 'Checking...' : 'Check Updates'}
                     </button>
-                    <button 
+                    <button
                         onClick={fetchApps}
                         className="p-2 hover:bg-white/5 rounded-xl transition-colors text-muted hover:text-white border border-transparent hover:border-white/10"
                         title="Rescan All"
@@ -1518,13 +2164,13 @@ const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg:
                                     </td>
                                     <td className="p-3 px-6">
                                         <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter
-                                            ${app.type === 'system' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 
-                                              app.type === 'python' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 
-                                              app.type === 'node' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
-                                              app.type === 'php' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 
-                                              app.type === 'ruby' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 
-                                              app.type === 'rust' ? 'bg-orange-600/10 text-orange-500 border border-orange-600/20' : 
-                                              'bg-white/5 text-muted border border-white/10'}
+                                            ${app.type === 'system' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                                                app.type === 'python' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                                                    app.type === 'node' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                                        app.type === 'php' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                                            app.type === 'ruby' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                                                                app.type === 'rust' ? 'bg-orange-600/10 text-orange-500 border border-orange-600/20' :
+                                                                    'bg-white/5 text-muted border border-white/10'}
                                         `}>
                                             {app.type}
                                         </span>
@@ -1765,8 +2411,8 @@ const Graphics: React.FC<{ server: Server | null, connected: boolean, stats: Ser
                                 <span>{stats.disk.total} capacity</span>
                             </div>
                             <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
-                                <div 
-                                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-600 transition-all duration-1000 shadow-[0_0_15px_rgba(245,158,11,0.3)]" 
+                                <div
+                                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-600 transition-all duration-1000 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
                                     style={{ width: `${stats.disk.percent}%` }}
                                 />
                             </div>
@@ -1774,29 +2420,29 @@ const Graphics: React.FC<{ server: Server | null, connected: boolean, stats: Ser
                     </div>
 
                     <div className="glass rounded-3xl p-6 border border-white/5 flex flex-col gap-4">
-                         <div className="flex items-center gap-3">
-                             <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
-                                 <Layers className="w-4 h-4" />
-                             </div>
-                             <h4 className="text-xs font-black font-mono tracking-widest uppercase text-white/90">Storage Consumers</h4>
-                         </div>
-                         <div className="flex flex-col gap-3">
-                             {stats.disk.topConsumers.map((item, idx) => (
-                                 <div key={idx} className="flex items-center justify-between group">
-                                     <div className="flex items-center gap-3 max-w-[70%]">
-                                         <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/30 group-hover:bg-cyan-500 transition-colors" />
-                                         <span className="text-[10px] font-mono text-muted truncate group-hover:text-white transition-colors">{item.path}</span>
-                                     </div>
-                                     <div className="flex items-center gap-4">
-                                         <span className="text-[10px] font-mono text-white/30">{item.size}</span>
-                                         <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden hidden sm:block">
-                                             <div className="h-full bg-cyan-500/50" style={{ width: `${item.percent}%` }} />
-                                         </div>
-                                         <span className="text-[10px] font-mono font-bold text-cyan-500 w-8 text-right">{item.percent.toFixed(0)}%</span>
-                                     </div>
-                                 </div>
-                             ))}
-                         </div>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                                <Layers className="w-4 h-4" />
+                            </div>
+                            <h4 className="text-xs font-black font-mono tracking-widest uppercase text-white/90">Storage Consumers</h4>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            {stats.disk.topConsumers.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between group">
+                                    <div className="flex items-center gap-3 max-w-[70%]">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/30 group-hover:bg-cyan-500 transition-colors" />
+                                        <span className="text-[10px] font-mono text-muted truncate group-hover:text-white transition-colors">{item.path}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-[10px] font-mono text-white/30">{item.size}</span>
+                                        <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden hidden sm:block">
+                                            <div className="h-full bg-cyan-500/50" style={{ width: `${item.percent}%` }} />
+                                        </div>
+                                        <span className="text-[10px] font-mono font-bold text-cyan-500 w-8 text-right">{item.percent.toFixed(0)}%</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}
@@ -1881,6 +2527,39 @@ const ServerDetail: React.FC = () => {
     // ── Shared Log Viewer State ──
     const [logTabs, setLogTabs] = useState<LogTab[]>([]);
     const [activeLogTabId, setActiveLogTabId] = useState<string | null>(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    const handleDeleteServer = async () => {
+        if (!server) return;
+        if (confirm(`Are you sure you want to permanently delete "${server.name || server.host}"? This will remove all associated scripts and history.`)) {
+            const success = await api.deleteServer(server.id);
+            if (success) {
+                navigate('/');
+            } else {
+                triggerAlert("Failed to delete server", "error");
+            }
+        }
+    };
+
+    const handleSaveServer = async (updatedData: Server) => {
+        if (!server) return;
+        const success = await api.updateServer(server.id, updatedData);
+        if (success) {
+            setServer({ ...server, ...updatedData });
+            triggerAlert("Server configuration updated", "success");
+        } else {
+            triggerAlert("Failed to update server", "error");
+        }
+    };
+
+    const handleUpdateColor = async (color: string) => {
+        if (!server) return;
+        const success = await api.updateServer(server.id, { color });
+        if (success) {
+            setServer({ ...server, color });
+            triggerAlert("Theme updated", "success");
+        }
+    };
 
     const fetchLogs = async (type: string, target: string, title: string) => {
         const tabId = `${type}-${target}`;
@@ -1904,14 +2583,15 @@ const ServerDetail: React.FC = () => {
         }
     };
 
-    const fetchScriptLogs = async (command: string, title: string) => {
+    const fetchScriptLogs = async (script: Script | string, title: string) => {
         const tabId = `script-${Math.random().toString(36).substr(2, 9)}`;
+        const command = typeof script === 'string' ? script : script.command || script.content;
         const newTab: LogTab = { id: tabId, title: `Run: ${title}`, type: 'script', target: command, logs: '', loading: true, searchTerm: '', activeMatchIndex: 0 };
         setLogTabs(prev => [...prev, newTab]);
         setActiveLogTabId(tabId);
 
         try {
-            await api.startScriptStream(server?.id, command, tabId);
+            await api.startScriptStream(server?.id, script, tabId);
             api.onLogOutput(tabId, (data: string) => {
                 setLogTabs(prev => prev.map(t => t.id === tabId ? { ...t, logs: t.logs + data, loading: false } : t));
             });
@@ -1991,17 +2671,17 @@ const ServerDetail: React.FC = () => {
                 console.log("Received transfer progress in renderer:", data);
                 setTransfers(prev => {
                     const existing = prev[data.id] || { speedHistory: [], expanded: false };
-                    
+
                     const now = Date.now();
                     const lastUpdate = existing.lastUpdate || now;
                     const timeDiff = (now - lastUpdate) / 1000;
                     const bytesDiff = data.transferred - (existing.transferred || 0);
                     const currentSpeed = timeDiff > 0 ? bytesDiff / timeDiff : 0;
-                    
+
                     const newSpeedHistory = [...(existing.speedHistory || [])];
                     if (newSpeedHistory.length > 20) newSpeedHistory.shift();
                     newSpeedHistory.push({ time: now, speed: currentSpeed });
-                    
+
                     const updates = {
                         speedHistory: newSpeedHistory,
                         lastUpdate: now,
@@ -2089,7 +2769,7 @@ const ServerDetail: React.FC = () => {
                 triggerAlert("Connected successfully", "success");
                 const info = await api.getSystemInfo(serverId);
                 if (info && !info.error) setSystemInfo(info);
-                
+
                 // Fetch git repositories
                 const repos = await api.getGitRepos(serverId);
                 if (repos && !repos.error) setUlakGitRepos(repos);
@@ -2300,40 +2980,31 @@ const ServerDetail: React.FC = () => {
                                 </svg>
                             ),
                             content: (
-                                <div className="h-[400px]">
-                                    <CodeEditor
-                                        initialValue="#!/bin/bash\n\n# Welcome to UlakSSH Script Editor\necho 'Initializing secure link...'\n uptime\n free -m\n"
-                                    />
-                                </div>
+                                <ScriptsManager
+                                    server={server}
+                                    onRunScript={fetchScriptLogs}
+                                    onUpdateServer={(updates) => {
+                                        api.updateServer(server.id, updates);
+                                        setServer(prev => prev ? { ...prev, ...updates } : null);
+                                    }}
+                                    triggerAlert={triggerAlert}
+                                />
+                            ),
+                        },
+                        {
+                            id: 'settings',
+                            label: 'Settings',
+                            icon: (
+                                <SettingsIcon className="w-3.5 h-3.5" />
+                            ),
+                            content: (
+                                <ServerSettings 
+                                    server={server} 
+                                    onEdit={() => setIsEditModalOpen(true)}
+                                    onDelete={handleDeleteServer}
+                                    onUpdateColor={handleUpdateColor}
+                                />
                             )
-                        },
-                        {
-                            id: 'commands',
-                            label: 'Commands',
-                            icon: (
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" />
-                                </svg>
-                            ),
-                            content: <Commands 
-                                server={server} 
-                                onRunScript={fetchScriptLogs}
-                                onUpdateServer={(updates) => {
-                                    api.updateServer(server.id, updates);
-                                    setServer(prev => prev ? { ...prev, ...updates } : null);
-                                }}
-                                triggerAlert={triggerAlert}
-                            />
-                        },
-                        {
-                            id: 'config',
-                            label: 'Config',
-                            icon: (
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.72V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.17a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" />
-                                </svg>
-                            ),
-                            content: <Configs server={server} triggerAlert={triggerAlert} />
                         },
                         {
                             id: 'health',
@@ -2369,18 +3040,18 @@ const ServerDetail: React.FC = () => {
                                 </div>
                             )
                         },
-                        {
-                            id: 'settings',
-                            label: 'Settings',
-                            icon: (
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                                </svg>
-                            ),
-                            content: <Settings />
-                        }
                     ]}
                 />
+
+                {/* ── Settings Edit Modal ─────────────────────────────────────── */}
+                {server && (
+                    <ServerEditModal 
+                        isOpen={isEditModalOpen} 
+                        onClose={() => setIsEditModalOpen(false)} 
+                        server={server} 
+                        onSave={handleSaveServer} 
+                    />
+                )}
 
                 {/* ── Disconnected CTA ───────────────────────────────────────────── */}
                 {!connected && !connecting && (
@@ -2438,8 +3109,8 @@ const ServerDetail: React.FC = () => {
             {Object.keys(transfers).length > 0 && (
                 <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-3 w-80 animate-slide-up">
                     {Object.values(transfers).map((transfer: any) => (
-                        <div 
-                            key={transfer.id} 
+                        <div
+                            key={transfer.id}
                             className="glass rounded-2xl border border-white/10 overflow-hidden glow-cyan shadow-2xl animate-fade-in"
                         >
                             {/* Header */}
@@ -2456,7 +3127,7 @@ const ServerDetail: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                    <button 
+                                    <button
                                         onClick={() => setTransfers(prev => ({
                                             ...prev,
                                             [transfer.id]: { ...prev[transfer.id], expanded: !prev[transfer.id].expanded }
@@ -2465,7 +3136,7 @@ const ServerDetail: React.FC = () => {
                                     >
                                         <Maximize2 className="w-3.5 h-3.5" />
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={() => setTransfers(prev => {
                                             const next = { ...prev };
                                             delete next[transfer.id];
@@ -2489,7 +3160,7 @@ const ServerDetail: React.FC = () => {
                                     </span>
                                 </div>
                                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                    <div 
+                                    <div
                                         className={`h-full transition-all duration-300 ${transfer.type === 'download' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}
                                         style={{ width: `${transfer.total > 0 ? (transfer.transferred / transfer.total) * 100 : 0}%` }}
                                     />
@@ -2504,16 +3175,16 @@ const ServerDetail: React.FC = () => {
                                             <AreaChart data={transfer.speedHistory}>
                                                 <defs>
                                                     <linearGradient id={`colorSpeed-${transfer.id}`} x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor={transfer.type === 'download' ? '#3b82f6' : '#10b981'} stopOpacity={0.3}/>
-                                                        <stop offset="95%" stopColor={transfer.type === 'download' ? '#3b82f6' : '#10b981'} stopOpacity={0}/>
+                                                        <stop offset="5%" stopColor={transfer.type === 'download' ? '#3b82f6' : '#10b981'} stopOpacity={0.3} />
+                                                        <stop offset="95%" stopColor={transfer.type === 'download' ? '#3b82f6' : '#10b981'} stopOpacity={0} />
                                                     </linearGradient>
                                                 </defs>
-                                                <Area 
-                                                    type="monotone" 
-                                                    dataKey="speed" 
-                                                    stroke={transfer.type === 'download' ? '#3b82f6' : '#10b981'} 
-                                                    fillOpacity={1} 
-                                                    fill={`url(#colorSpeed-${transfer.id})`} 
+                                                <Area
+                                                    type="monotone"
+                                                    dataKey="speed"
+                                                    stroke={transfer.type === 'download' ? '#3b82f6' : '#10b981'}
+                                                    fillOpacity={1}
+                                                    fill={`url(#colorSpeed-${transfer.id})`}
                                                     isAnimationActive={false}
                                                 />
                                             </AreaChart>

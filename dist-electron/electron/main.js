@@ -595,13 +595,13 @@ ipcMain.handle('start-process-log-stream', async (event, serverId, type, target,
         return { success: false, error: error.message };
     }
 });
-ipcMain.handle('start-script-stream', async (event, serverId, scriptCommand, tabId) => {
+ipcMain.handle('start-script-stream', async (event, serverId, script, tabId) => {
     try {
         const session = activeSessions.get(serverId);
         if (!session)
             throw new Error('No active session');
         const { runScriptStream } = await import('../src/main/ssh/runScript.js');
-        const stream = await runScriptStream(session, scriptCommand);
+        const stream = await runScriptStream(session, script);
         activeLogStreams.set(tabId, { stream, serverId });
         stream.on('data', (data) => {
             event.sender.send(`log-output-${tabId}`, data.toString('utf8'));

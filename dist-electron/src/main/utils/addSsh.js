@@ -11,6 +11,25 @@ export const ensureServersFileExists = (filePath) => {
         fs.writeFileSync(filePath, JSON.stringify([]), 'utf-8');
     }
 };
+export const saveScriptsToDisk = (serverId, scripts) => {
+    try {
+        const scriptsDir = path.join(app.getPath('userData'), 'scripts', serverId);
+        if (!fs.existsSync(scriptsDir)) {
+            fs.mkdirSync(scriptsDir, { recursive: true });
+        }
+        scripts.forEach(script => {
+            const ext = script.language === 'python' ? 'py' :
+                script.language === 'javascript' || script.language === 'nodejs' ? 'js' :
+                    'sh';
+            const fileName = `${script.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${script.id}.${ext}`;
+            const filePath = path.join(scriptsDir, fileName);
+            fs.writeFileSync(filePath, script.content, 'utf-8');
+        });
+    }
+    catch (e) {
+        console.error('Failed to save scripts to disk:', e);
+    }
+};
 export const addSshServer = (server) => {
     try {
         const filePath = getServersFilePath();
@@ -39,6 +58,9 @@ export const addSshServer = (server) => {
         if (serverToSave.passphrase && isEncryptionAvailable) {
             const encrypted = safeStorage.encryptString(serverToSave.passphrase);
             serverToSave.passphrase = encrypted.toString('base64');
+        }
+        if (serverToSave.scripts && serverToSave.scripts.length > 0) {
+            saveScriptsToDisk(serverToSave.id, serverToSave.scripts);
         }
         servers.push(serverToSave);
         fs.writeFileSync(filePath, JSON.stringify(servers, null, 4), 'utf-8');

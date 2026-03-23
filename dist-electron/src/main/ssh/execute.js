@@ -1,27 +1,40 @@
 export const executeCommand = (session, cmd) => {
     return new Promise((resolve, reject) => {
+        const passwordPart = session.password ? `echo "${session.password}" | ` : '';
         const command = session.shouldSudo
-            ? `echo "${session.password}" | sudo -S -p "" ${cmd}`
-            : cmd;
+            ? `${passwordPart}sudo -S -p "" ${cmd}`
+            : String(cmd);
+        // console.log(`[executeCommand] Executing: ${command}`);
         session.conn.exec(command, (err, stream) => {
-            if (err)
+            if (err) {
+                console.error(`[executeCommand] Exec error for: ${command}`, err);
                 return reject(err);
+            }
             let output = '';
             let errorOutput = '';
+            let exitCode = null;
+            let exitSignal = null;
             stream.on('data', (data) => {
                 output += data.toString();
             }).stderr.on('data', (data) => {
                 const chunk = data.toString();
-                // Filter out sudo password prompt noise if any remains
                 if (!chunk.includes('password for') && !chunk.includes('Password:')) {
                     errorOutput += chunk;
                 }
-            }).on('close', (code) => {
-                if (code !== 0 && !output) {
-                    reject(new Error(errorOutput || `Command failed with code ${code}`));
+            });
+            stream.on('exit', (code, signal) => {
+                exitCode = code;
+                exitSignal = signal;
+            });
+            stream.on('close', () => {
+                if (exitCode === 0 && !exitSignal) {
+                    resolve(output);
                 }
                 else {
-                    resolve(output);
+                    const errorMsg = errorOutput.trim() ||
+                        (exitCode === null && !exitSignal ? "Connection closed during execution" : `Command failed with code ${exitCode}${exitSignal ? ` and signal ${exitSignal}` : ''}`);
+                    console.error(`[executeCommand] Failed: ${command}`, { code: exitCode, signal: exitSignal, errorOutput });
+                    reject(new Error(`${errorMsg} (Command: ${command})`));
                 }
             });
         });
@@ -37,24 +50,35 @@ export const getSftp = (session) => {
             });
         }
         else {
-            // Try common paths for sftp-server
-            const sftpServerPaths = [
-                '/usr/libexec/openssh/sftp-server',
-                '/usr/lib/openssh/sftp-server',
-                'sftp-server'
-            ];
             // We'll try the first one that exists or just fallback to 'sftp-server'
             // For simplicity and to handle the user's specific request, we use 'sudo -s sftp-server'
             // Some systems might need the full path.
-            const cmd = `echo "${session.password}" | sudo -S -p "" -s sftp-server`;
-            session.conn.exec(cmd, (err, _stream) => {
-                if (err)
+            const passwordPart = session.password ? `echo "${session.password}" | ` : '';
+            const cmd = `${passwordPart}sudo -S -p "" -s sftp-server`;
+            console.log(`[getSftp] Executing sudo sftp: ${cmd}`);
+            session.conn.exec(cmd, (err, stream) => {
+                if (err) {
+                    console.error(`[getSftp] Exec error for: ${cmd}`, err);
                     return reject(err);
+                }
+                let exitCode = null;
+                let exitSignal = null;
+                stream.on('error', (streamErr) => {
+                    console.error(`[getSftp] Stream error for: ${cmd}`, streamErr);
+                });
+                stream.on('exit', (code, signal) => {
+                    exitCode = code;
+                    exitSignal = signal;
+                });
+                stream.on('close', () => {
+                    if (exitCode !== 0 || exitSignal) {
+                        console.warn(`[getSftp] Sudo SFTP closed with code ${exitCode} and signal ${exitSignal}. Falling back to normal SFTP.`);
+                    }
+                });
                 // @ts-ignore - ssh2's SFTP constructor is not always in the types as public
                 session.conn.sftp((err, sftp) => {
                     if (err) {
-                        // Fallback to normal sftp if sudo sftp fails or is not supported this way
-                        console.warn("Sudo SFTP failed, falling back to normal SFTP", err);
+                        console.warn("[getSftp] Sudo SFTP failed, falling back to normal SFTP", err);
                         session.conn.sftp((err2, sftp2) => {
                             if (err2)
                                 return reject(err2);

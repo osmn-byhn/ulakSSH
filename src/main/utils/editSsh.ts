@@ -1,6 +1,7 @@
 import { safeStorage } from 'electron';
 import * as fs from 'fs';
-import { getServersFilePath, ensureServersFileExists } from './addSsh.js';
+
+import { getServersFilePath, ensureServersFileExists, saveScriptsToDisk } from './addSsh.js';
 import type { Server } from '../../shared/server.js';
 
 export const updateSshServer = (id: string, updates: Partial<Server>): boolean => {
@@ -36,6 +37,10 @@ export const updateSshServer = (id: string, updates: Partial<Server>): boolean =
             updatedServer.passphrase = encrypted.toString('base64');
         }
 
+        if (updates.scripts) {
+            saveScriptsToDisk(id, updates.scripts);
+        }
+
         servers[index] = updatedServer;
 
         fs.writeFileSync(filePath, JSON.stringify(servers, null, 4), 'utf-8');
@@ -45,3 +50,4 @@ export const updateSshServer = (id: string, updates: Partial<Server>): boolean =
         return false;
     }
 };
+

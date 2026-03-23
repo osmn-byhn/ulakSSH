@@ -2,7 +2,7 @@ import { app, safeStorage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import crypto from 'crypto';
-import type { Server } from '../../shared/server.js';
+import type { Server, Script } from '../../shared/server.js';
 
 const SERVERS_FILE = 'servers.json';
 
@@ -13,6 +13,26 @@ export const getServersFilePath = () => {
 export const ensureServersFileExists = (filePath: string) => {
     if (!fs.existsSync(filePath)) {
         fs.writeFileSync(filePath, JSON.stringify([]), 'utf-8');
+    }
+};
+
+export const saveScriptsToDisk = (serverId: string, scripts: Script[]) => {
+    try {
+        const scriptsDir = path.join(app.getPath('userData'), 'scripts', serverId);
+        if (!fs.existsSync(scriptsDir)) {
+            fs.mkdirSync(scriptsDir, { recursive: true });
+        }
+
+        scripts.forEach(script => {
+            const ext = script.language === 'python' ? 'py' : 
+                        script.language === 'javascript' || script.language === 'nodejs' ? 'js' : 
+                        'sh';
+            const fileName = `${script.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${script.id}.${ext}`;
+            const filePath = path.join(scriptsDir, fileName);
+            fs.writeFileSync(filePath, script.content, 'utf-8');
+        });
+    } catch (e) {
+        console.error('Failed to save scripts to disk:', e);
     }
 };
 
@@ -49,6 +69,10 @@ export const addSshServer = (server: Server): boolean => {
         if (serverToSave.passphrase && isEncryptionAvailable) {
             const encrypted = safeStorage.encryptString(serverToSave.passphrase);
             serverToSave.passphrase = encrypted.toString('base64');
+        }
+
+        if (serverToSave.scripts && serverToSave.scripts.length > 0) {
+            saveScriptsToDisk(serverToSave.id, serverToSave.scripts);
         }
 
         servers.push(serverToSave);

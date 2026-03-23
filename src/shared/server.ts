@@ -3,9 +3,13 @@ export type OsType = 'ubuntu' | 'debian' | 'centos' | 'arch' | 'fedora' | 'linux
 export type Script = {
     id: string;
     name: string;
-    command: string;
+    command?: string; // Execution command (e.g. bash, python3)
+    content: string; // The full script body
+    language: string; // bash, python, javascript, etc.
     color: string;
+    remotePath?: string; // Optional path to save on server
 }
+
 
 export type Server = {
     id: string;

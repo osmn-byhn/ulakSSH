@@ -1,6 +1,6 @@
 import { safeStorage } from 'electron';
 import * as fs from 'fs';
-import { getServersFilePath, ensureServersFileExists } from './addSsh.js';
+import { getServersFilePath, ensureServersFileExists, saveScriptsToDisk } from './addSsh.js';
 export const updateSshServer = (id, updates) => {
     try {
         const filePath = getServersFilePath();
@@ -30,6 +30,9 @@ export const updateSshServer = (id, updates) => {
         if (updates.passphrase && isEncryptionAvailable) {
             const encrypted = safeStorage.encryptString(updates.passphrase);
             updatedServer.passphrase = encrypted.toString('base64');
+        }
+        if (updates.scripts) {
+            saveScriptsToDisk(id, updates.scripts);
         }
         servers[index] = updatedServer;
         fs.writeFileSync(filePath, JSON.stringify(servers, null, 4), 'utf-8');

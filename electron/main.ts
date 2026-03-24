@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, ipcMain, dialog } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import { updateIfNeeded } from '@osmn-byhn/changelog-github-updater';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,11 +56,25 @@ ipcMain.on('window-maximize', (event) => {
     }
   }
 });
-
 ipcMain.on('window-close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) win.close();
 });
+
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await updateIfNeeded({
+      owner: 'osmn-byhn',
+      repo: 'ulakSSH',
+      autoInstall: true
+    });
+    return result;
+  } catch (err) {
+    console.error('Update check failed:', err);
+    throw err;
+  }
+});
+
 
 ipcMain.handle('add-server', async (event, serverData) => {
   // dynamically import to ensure it works correctly with file paths
@@ -686,6 +701,27 @@ ipcMain.handle('read-file', async (event, filePath) => {
     console.error('Failed to read file:', error);
     return null;
   }
+});
+
+// ─── App Settings ───────────────────────
+ipcMain.handle('get-settings', async () => {
+  const { getSettings } = await import('../src/main/utils/settings.js');
+  return getSettings();
+});
+
+ipcMain.handle('update-settings', async (event, updates) => {
+  const { saveSettings } = await import('../src/main/utils/settings.js');
+  return saveSettings(updates);
+});
+
+ipcMain.handle('check-app-password', async (event, password) => {
+  const { checkAppPassword } = await import('../src/main/utils/settings.js');
+  return checkAppPassword(password);
+});
+
+ipcMain.handle('set-app-password', async (event, password) => {
+  const { setAppPassword } = await import('../src/main/utils/settings.js');
+  return setAppPassword(password);
 });
 
 app.whenReady().then(() => {

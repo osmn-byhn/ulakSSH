@@ -90,4 +90,11 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on('transfer-progress', (_event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners('transfer-progress');
   },
+
+  // ─── App Settings ───────────────────────
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  updateSettings: (updates: any) => ipcRenderer.invoke('update-settings', updates),
+  checkAppPassword: (password: string) => ipcRenderer.invoke('check-app-password', password),
+  setAppPassword: (password: string | null) => ipcRenderer.invoke('set-app-password', password),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
 });

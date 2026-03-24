@@ -92,7 +92,7 @@ const Home: React.FC = () => {
         setIsDragging(false);
     };
 
-    const inputCls = "w-full px-3 py-2 rounded-lg text-sm font-mono placeholder-gray-700 transition-all";
+    const inputCls = "w-full px-3 py-2 rounded-lg text-sm font-mono transition-all";
     const labelCls = "block text-[10px] font-semibold uppercase tracking-widest mb-1.5" as const;
 
     return (
@@ -121,7 +121,7 @@ const Home: React.FC = () => {
                         >
                             UlakSSH
                         </h1>
-                        <p className="text-sm mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+                        <p className="text-sm mt-1.5 text-secondary">
                             SSH connection manager — fast, secure, minimal
                         </p>
                     </div>
@@ -144,7 +144,7 @@ const Home: React.FC = () => {
                 {/* ── Section header ───────────────────────────────────────────── */}
                 <div className="flex items-center gap-3 mb-5">
                     <div className="h-px flex-1" style={{ background: 'var(--border-subtle)' }} />
-                    <span className="text-xs font-mono uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                    <span className="text-xs font-mono uppercase tracking-widest text-muted">
                         Saved Servers
                     </span>
                     <div className="h-px flex-1" style={{ background: 'var(--border-subtle)' }} />
@@ -155,9 +155,9 @@ const Home: React.FC = () => {
                     <div className="glass rounded-2xl p-14 text-center flex flex-col items-center justify-center animate-fade-in">
                         {/* ASCII-art style icon */}
                         <pre
-                            className="text-xs leading-tight mb-6 select-none"
+                            className="text-xs leading-tight mb-6 select-none opacity-30"
                             style={{
-                                color: 'rgba(6,182,212,0.3)',
+                                color: 'var(--accent-cyan)',
                                 fontFamily: 'JetBrains Mono, monospace',
                             }}
                         >{`  ┌─────────┐
@@ -166,10 +166,10 @@ const Home: React.FC = () => {
   └────┬────┘
        │
   ─────┴─────`}</pre>
-                        <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                        <h3 className="text-lg font-semibold mb-2 text-primary">
                             No connections yet
                         </h3>
-                        <p className="text-sm max-w-xs" style={{ color: 'var(--text-secondary)' }}>
+                        <p className="text-sm max-w-xs text-secondary">
                             Add your first SSH server to get started. Click <strong className="text-cyan-400">New Connection</strong> above.
                         </p>
                     </div>
@@ -181,7 +181,7 @@ const Home: React.FC = () => {
                                 className="glass rounded-2xl p-5 group cursor-pointer transition-all duration-200 hover:border-cyan-500/20 relative overflow-hidden animate-slide-up"
                                 style={{
                                     animationDelay: `${idx * 40}ms`,
-                                    borderColor: 'rgba(255,255,255,0.06)',
+                                    borderColor: 'var(--border-subtle)',
                                 }}
                                 onClick={() => navigate(`/server/${server.id}`)}
                             >
@@ -196,17 +196,16 @@ const Home: React.FC = () => {
                                     <div className="flex items-center gap-3">
                                         <div
                                             className="p-2 rounded-xl"
-                                            style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)' }}
+                                            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-medium)' }}
                                         >
                                             <OsIcon os={server.os} className="w-6 h-6" />
                                         </div>
                                         <div>
-                                            <h3 className="font-semibold text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>
+                                            <h3 className="font-semibold text-sm leading-tight text-primary">
                                                 {server.name}
                                             </h3>
                                             <span
-                                                className="text-[10px] font-mono"
-                                                style={{ color: 'var(--text-muted)' }}
+                                                className="text-[10px] font-mono text-muted"
                                             >
                                                 {server.os || 'linux'}
                                             </span>
@@ -228,18 +227,18 @@ const Home: React.FC = () => {
                                 {/* Details */}
                                 <div className="space-y-1.5 mb-4">
                                     <div className="flex items-center gap-2">
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0" style={{ color: 'var(--text-muted)' }}>
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-muted">
                                             <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                                         </svg>
-                                        <span className="text-xs font-mono truncate" style={{ color: 'var(--text-secondary)' }}>
+                                        <span className="text-xs font-mono truncate text-secondary">
                                             {server.host}:{server.port}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0" style={{ color: 'var(--text-muted)' }}>
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-muted">
                                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                                         </svg>
-                                        <span className="text-xs font-mono truncate" style={{ color: 'var(--text-secondary)' }}>
+                                        <span className="text-xs font-mono truncate text-secondary">
                                             {server.username}
                                         </span>
                                     </div>
@@ -248,11 +247,11 @@ const Home: React.FC = () => {
                                 {/* Footer */}
                                 <div
                                     className="flex items-center justify-between pt-3"
-                                    style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                                    style={{ borderTop: '1px solid var(--border-subtle)' }}
                                 >
                                     <span
                                         className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider"
-                                        style={{ color: server.authType === 'key' ? '#f59e0b' : '#06b6d4' }}
+                                        style={{ color: server.authType === 'key' ? 'var(--accent-amber)' : 'var(--accent-cyan)' }}
                                     >
                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -309,14 +308,12 @@ const Home: React.FC = () => {
                         </div>
                     </div>
 
-
-
                     {/* Auth toggle */}
                     <div>
-                        <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Auth Method</label>
+                        <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Auth Method *</label>
                         <div
                             className="flex p-1 rounded-xl gap-1"
-                            style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}
+                            style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}
                         >
                             {(['password', 'key'] as const).map(t => (
                                 <button
@@ -386,7 +383,7 @@ const Home: React.FC = () => {
 
                     <div
                         className="flex justify-end gap-3 pt-4 mt-2"
-                        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+                        style={{ borderTop: '1px solid var(--border-subtle)' }}
                     >
                         <button
                             type="button"

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import Logo from "../../../../public/logo.png";
+const Logo = "/logo.png";
 
 const Titlebar: React.FC = () => {
     const api = (window as any).api;
@@ -21,10 +21,10 @@ const Titlebar: React.FC = () => {
 
     return (
         <div
-            className="flex justify-between items-center select-none h-10 w-full fixed top-0 left-0 z-50"
+            className="flex justify-between items-center select-none h-10 w-full fixed top-0 left-0 z-50 transition-colors duration-300"
             style={{
-                background: 'rgba(5,8,16,0.95)',
-                borderBottom: '1px solid rgba(6,182,212,0.15)',
+                background: 'var(--bg-modal)',
+                borderBottom: '1px solid var(--border-subtle)',
                 backdropFilter: 'blur(20px)',
                 WebkitBackdropFilter: 'blur(20px)',
             }}
@@ -35,7 +35,7 @@ const Titlebar: React.FC = () => {
                     <img src={Logo} alt="Logo" className="w-5 h-5 opacity-90" />
                     <span
                         className="font-mono text-sm font-semibold tracking-widest"
-                        style={{ color: '#06b6d4', textShadow: '0 0 18px rgba(6,182,212,0.5)' }}
+                        style={{ color: 'var(--accent-cyan)', textShadow: '0 0 18px rgba(6,182,212,0.3)' }}
                     >
                         ULAKSSH
                     </span>
@@ -43,8 +43,8 @@ const Titlebar: React.FC = () => {
 
                 {/* Breadcrumb */}
                 {getBreadcrumb() && (
-                    <div className="flex items-center gap-1 font-mono text-xs text-gray-600 app-region-no-drag">
-                        <span className="text-gray-700">~/</span>
+                    <div className="flex items-center gap-1 font-mono text-xs app-region-no-drag">
+                        <span className="text-muted opacity-50">~/</span>
                         {getBreadcrumb()}
                     </div>
                 )}

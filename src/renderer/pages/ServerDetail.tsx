@@ -44,6 +44,9 @@ import {
 import HealthDashboard from "../components/health/HealthDashboard";
 import type { AlertType } from "../components/ui/Alert";
 import type { Server, Script } from "../../shared/server";
+import { useSecurity } from '../components/SecurityProvider';
+
+const api = (window as any).api;
 
 const FolderIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -131,13 +134,14 @@ const EditorModal: React.FC<EditorModalProps> = ({ isOpen, onClose, filename, co
         }
     };
 
+    const { settings } = useSecurity();
     const language = getLanguage(filename);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-            <div className="glass w-full max-w-6xl h-[85vh] flex flex-col rounded-3xl overflow-hidden border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+            <div className="glass w-full max-w-6xl h-[85vh] flex flex-col rounded-3xl overflow-hidden border border-theme-border shadow-[0_0_50px_rgba(0,0,0,0.5)]">
                 {/* Header */}
-                <div className="p-4 px-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+                <div className="p-4 px-6 border-b border-theme-border flex items-center justify-between bg-theme-bg-muted">
                     <div className="flex items-center gap-4">
                         <div className="p-2.5 rounded-2xl bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20">
                             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -145,7 +149,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ isOpen, onClose, filename, co
                             </svg>
                         </div>
                         <div className="flex flex-col">
-                            <h3 className="text-sm font-bold tracking-tight text-white/90">{filename}</h3>
+                            <h3 className="text-sm font-bold tracking-tight text-theme-text-primary">{filename}</h3>
                             <div className="flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#06b6d4] animate-pulse" />
                                 <p className="text-[10px] font-mono text-[#06b6d4] uppercase tracking-widest font-black">{language} edit mode</p>
@@ -154,7 +158,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ isOpen, onClose, filename, co
                     </div>
                     <button
                         onClick={onClose}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full text-muted hover:text-white transition-all border border-transparent hover:border-white/10"
+                        className="w-10 h-10 flex items-center justify-center hover:bg-theme-bg-muted rounded-full text-theme-text-muted hover:text-theme-text-primary transition-all border border-transparent hover:border-theme-border"
                     >
                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M18 6L6 18M6 6l12 12" />
@@ -167,7 +171,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ isOpen, onClose, filename, co
                     <Editor
                         height="100%"
                         language={language}
-                        theme="vs-dark"
+                        theme={settings?.theme === 'light' ? 'vs-light' : 'vs-dark'}
                         value={editorValue}
                         onChange={(val) => setEditorValue(val || '')}
                         options={{
@@ -300,7 +304,6 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
     );
 
     const [selectedFile, setSelectedFile] = useState<{ name: string, content: string, path: string } | null>(null);
-    const api = (window as any).api;
 
     useEffect(() => {
         if (connected) {
@@ -558,7 +561,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
             tabIndex={0}
         >
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 glass rounded-2xl p-3 border border-white/5">
+            <div className="flex flex-wrap items-center justify-between gap-4 glass rounded-2xl p-3 border border-theme-border">
                 {/* Search */}
                 <div className="relative flex-1 min-w-[200px]">
                     <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -569,7 +572,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                         placeholder="Search items (min 3 chars)..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all"
+                        className="w-full bg-theme-bg-muted border border-theme-border rounded-xl py-2 pl-10 pr-4 text-xs font-mono outline-none focus:border-[#06b6d4]/50 transition-all text-theme-text-primary"
                     />
                 </div>
 
@@ -603,7 +606,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                     <button
                         onClick={() => loadDirectory(path)}
                         disabled={loading || !connected}
-                        className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-muted disabled:opacity-30"
+                        className="p-2 rounded-xl bg-theme-bg-muted border border-theme-border hover:bg-theme-bg-subtle text-theme-text-muted disabled:opacity-30"
                         title="Refresh"
                     >
                         <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -616,7 +619,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
-                        className="bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-[10px] font-mono font-bold uppercase tracking-wider outline-none cursor-pointer hover:bg-white/10"
+                        className="bg-theme-bg-muted border border-theme-border rounded-xl py-2 px-3 text-[10px] font-mono font-bold uppercase tracking-wider outline-none cursor-pointer hover:bg-theme-bg-subtle text-theme-text-primary"
                     >
                         <option value="name">Sort: Name</option>
                         <option value="size">Sort: Size</option>
@@ -625,7 +628,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
 
                     <button
                         onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                        className="p-2 px-4 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-muted"
+                        className="p-2 px-4 rounded-full bg-theme-bg-muted border border-theme-border hover:bg-theme-bg-subtle text-theme-text-muted"
                     >
                         {sortOrder === 'asc' ? '↑' : '↓'}
                     </button>
@@ -634,7 +637,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
 
                     <button
                         onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded-xl border transition-all ${viewMode === 'grid' ? 'bg-[#06b6d4]/10 border-[#06b6d4]/30 text-[#06b6d4]' : 'bg-white/5 border-white/10 text-muted hover:bg-white/10'}`}
+                        className={`p-2 rounded-xl border transition-all ${viewMode === 'grid' ? 'bg-[#06b6d4]/10 border-[#06b6d4]/30 text-[#06b6d4]' : 'bg-theme-bg-muted border-theme-border text-theme-text-muted hover:bg-theme-bg-subtle'}`}
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
@@ -642,7 +645,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
                     </button>
                     <button
                         onClick={() => setViewMode('list')}
-                        className={`p-2 rounded-xl border transition-all ${viewMode === 'list' ? 'bg-[#06b6d4]/10 border-[#06b6d4]/30 text-[#06b6d4]' : 'bg-white/5 border-white/10 text-muted hover:bg-white/10'}`}
+                        className={`p-2 rounded-xl border transition-all ${viewMode === 'list' ? 'bg-[#06b6d4]/10 border-[#06b6d4]/30 text-[#06b6d4]' : 'bg-theme-bg-muted border-theme-border text-theme-text-muted hover:bg-theme-bg-subtle'}`}
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
@@ -673,7 +676,7 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
             </div>
 
             {/* List/Grid Container */}
-            <div className="flex-1 overflow-y-auto glass rounded-2xl p-4 border border-white/5 scrollbar-thin">
+            <div className="flex-1 overflow-y-auto glass rounded-2xl p-4 border border-theme-border scrollbar-thin">
                 {loading ? (
                     <div className="h-full flex flex-col items-center justify-center gap-3 py-20">
                         <div className="w-8 h-8 border-2 border-[#06b6d4]/30 border-t-[#06b6d4] rounded-full animate-spin" />
@@ -871,13 +874,6 @@ const Directions: React.FC<{ server: Server, connected: boolean, triggerAlert: (
     );
 }
 
-const Settings: React.FC = () => {
-    return (
-        <div className="h-full">
-
-        </div>
-    );
-}
 
 interface RemotePathPickerModalProps {
     isOpen: boolean;
@@ -892,7 +888,6 @@ const RemotePathPickerModal: React.FC<RemotePathPickerModalProps> = ({ isOpen, o
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const api = (window as any).api;
 
     useEffect(() => {
         if (isOpen) {
@@ -1427,7 +1422,6 @@ const ServerEditModal: React.FC<{
 }> = ({ isOpen, onClose, server, onSave }) => {
     const [formData, setFormData] = useState<Server>({ ...server });
     const [isSaving, setIsSaving] = useState(false);
-    const api = (window as any).api;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1512,11 +1506,10 @@ const ServerEditModal: React.FC<{
                                 key={t}
                                 type="button"
                                 onClick={() => setFormData({ ...formData, authType: t })}
-                                className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
-                                    formData.authType === t
-                                        ? 'bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20'
-                                        : 'text-muted border border-transparent hover:text-white'
-                                }`}
+                                className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${formData.authType === t
+                                    ? 'bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20'
+                                    : 'text-muted border border-transparent hover:text-white'
+                                    }`}
                             >
                                 {t === 'password' ? '🔑 Password' : '🗝 SSH Key'}
                             </button>
@@ -1607,7 +1600,7 @@ const ServerSettings: React.FC<{
                         </div>
                         <h3 className="text-xs font-black font-mono tracking-widest uppercase text-white/90">Network Identity</h3>
                     </div>
-                    
+
                     <div className="flex flex-col gap-4">
                         <div className="flex justify-between items-center group">
                             <span className="text-[10px] font-mono text-muted uppercase tracking-widest flex items-center gap-2">
@@ -1641,7 +1634,7 @@ const ServerSettings: React.FC<{
                         </div>
                         <h3 className="text-xs font-black font-mono tracking-widest uppercase text-white/90">Access Protocol</h3>
                     </div>
-                    
+
                     <div className="flex flex-col gap-4">
                         <div className="flex justify-between items-center group">
                             <span className="text-[10px] font-mono text-muted uppercase tracking-widest flex items-center gap-2">
@@ -1777,9 +1770,9 @@ const MultiTabLogViewer: React.FC<{
     if (tabs.length === 0) return null;
 
     return (
-        <div className={`fixed bottom-0 left-0 right-0 z-[100] transition-all duration-300 ease-in-out ${isExpanded ? 'h-[60vh]' : 'h-[300px]'} flex flex-col glass border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] bg-black/80 backdrop-blur-xl`}>
+        <div className={`fixed bottom-0 left-0 right-0 z-[100] transition-all duration-300 ease-in-out ${isExpanded ? 'h-[60vh]' : 'h-[300px]'} flex flex-col glass border-t border-theme-border shadow-[0_-10px_40px_rgba(0,0,0,0.5)] bg-theme-bg backdrop-blur-xl`}>
             {/* Header / Tabs */}
-            <div className="flex items-center justify-between px-4 h-11 border-b border-white/5 bg-white/5">
+            <div className="flex items-center justify-between px-4 h-11 border-b border-theme-border bg-theme-bg-muted">
                 <div className="flex items-center gap-1 overflow-x-auto scrollbar-none flex-1">
                     {tabs.map((tab: LogTab) => (
                         <button
@@ -1938,7 +1931,6 @@ const Health: React.FC<{
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-    const api = (window as any).api;
 
     const fetchHealth = async () => {
         setLoading(true);
@@ -2012,7 +2004,6 @@ const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg:
     const [updatingPkg, setUpdatingPkg] = useState<string | null>(null);
     const [activeSubTab, setActiveSubTab] = useState<'main' | 'thirdParty' | 'packages'>('main');
 
-    const api = (window as any).api;
 
     useEffect(() => {
         if (connected) {
@@ -2089,8 +2080,8 @@ const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg:
     return (
         <div className="h-full overflow-y-auto pr-2 scrollbar-thin flex flex-col gap-4 animate-fade-in">
             {/* Header & Sub-Tabs */}
-            <div className="glass p-2 rounded-2xl border border-white/5 bg-white/[0.02] flex items-center justify-between gap-4">
-                <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+            <div className="glass p-2 rounded-2xl border border-theme-border bg-theme-bg-muted flex items-center justify-between gap-4">
+                <div className="flex bg-theme-bg p-1 rounded-xl border border-theme-border">
                     <button
                         onClick={() => setActiveSubTab('main')}
                         className={`px-4 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-widest transition-all ${activeSubTab === 'main' ? 'bg-[#06b6d4] text-black shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'text-muted hover:text-white'}`}
@@ -2130,10 +2121,10 @@ const Apps: React.FC<{ serverId: string, connected: boolean, triggerAlert: (msg:
                 </div>
             </div>
 
-            <div className="glass border border-white/5 rounded-2xl overflow-hidden">
+            <div className="glass border border-theme-border rounded-2xl overflow-hidden">
                 <table className="w-full text-left font-mono text-[10px]">
                     <thead>
-                        <tr className="text-muted border-b border-white/10 bg-white/[0.01]">
+                        <tr className="text-theme-text-muted border-b border-theme-border bg-theme-bg-muted">
                             <th className="p-4 px-6 font-bold uppercase tracking-widest">Name</th>
                             <th className="p-4 px-6 font-bold uppercase tracking-widest">Version</th>
                             <th className="p-4 px-6 font-bold uppercase tracking-widest">Status</th>
@@ -2297,17 +2288,17 @@ const Graphics: React.FC<{ server: Server | null, connected: boolean, stats: Ser
                                     <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--theme-border-subtle)" />
                             <XAxis dataKey="time" hide />
                             <YAxis
                                 domain={[0, 100]}
                                 ticks={[0, 25, 50, 75, 100]}
-                                stroke="rgba(255,255,255,0.1)"
-                                tick={{ fontSize: 8, fill: 'rgba(255,255,255,0.3)' }}
+                                stroke="var(--theme-border-subtle)"
+                                tick={{ fontSize: 8, fill: 'var(--text-muted)' }}
                                 width={25}
                             />
                             <Tooltip
-                                contentStyle={{ background: '#080b16', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '10px' }}
+                                contentStyle={{ background: 'var(--bg-glass)', border: '1px solid var(--theme-border)', borderRadius: '12px', fontSize: '10px' }}
                                 itemStyle={{ color: '#06b6d4' }}
                             />
                             <Area type="monotone" dataKey="cpu" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
@@ -2328,17 +2319,17 @@ const Graphics: React.FC<{ server: Server | null, connected: boolean, stats: Ser
                                     <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--theme-border-subtle)" />
                             <XAxis dataKey="time" hide />
                             <YAxis
                                 domain={[0, 100]}
                                 ticks={[0, 25, 50, 75, 100]}
-                                stroke="rgba(255,255,255,0.1)"
-                                tick={{ fontSize: 8, fill: 'rgba(255,255,255,0.3)' }}
+                                stroke="var(--theme-border-subtle)"
+                                tick={{ fontSize: 8, fill: 'var(--text-muted)' }}
                                 width={25}
                             />
                             <Tooltip
-                                contentStyle={{ background: '#080b16', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '10px' }}
+                                contentStyle={{ background: 'var(--bg-glass)', border: '1px solid var(--theme-border)', borderRadius: '12px', fontSize: '10px' }}
                                 itemStyle={{ color: '#a855f7' }}
                             />
                             <Area type="monotone" dataKey="mem" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorMem)" isAnimationActive={false} />
@@ -2992,21 +2983,6 @@ const ServerDetail: React.FC = () => {
                             ),
                         },
                         {
-                            id: 'settings',
-                            label: 'Settings',
-                            icon: (
-                                <SettingsIcon className="w-3.5 h-3.5" />
-                            ),
-                            content: (
-                                <ServerSettings 
-                                    server={server} 
-                                    onEdit={() => setIsEditModalOpen(true)}
-                                    onDelete={handleDeleteServer}
-                                    onUpdateColor={handleUpdateColor}
-                                />
-                            )
-                        },
-                        {
                             id: 'health',
                             label: 'Health',
                             icon: (
@@ -3040,16 +3016,32 @@ const ServerDetail: React.FC = () => {
                                 </div>
                             )
                         },
+
+                        {
+                            id: 'settings',
+                            label: 'Settings',
+                            icon: (
+                                <SettingsIcon className="w-3.5 h-3.5" />
+                            ),
+                            content: (
+                                <ServerSettings
+                                    server={server}
+                                    onEdit={() => setIsEditModalOpen(true)}
+                                    onDelete={handleDeleteServer}
+                                    onUpdateColor={handleUpdateColor}
+                                />
+                            )
+                        },
                     ]}
                 />
 
                 {/* ── Settings Edit Modal ─────────────────────────────────────── */}
                 {server && (
-                    <ServerEditModal 
-                        isOpen={isEditModalOpen} 
-                        onClose={() => setIsEditModalOpen(false)} 
-                        server={server} 
-                        onSave={handleSaveServer} 
+                    <ServerEditModal
+                        isOpen={isEditModalOpen}
+                        onClose={() => setIsEditModalOpen(false)}
+                        server={server}
+                        onSave={handleSaveServer}
                     />
                 )}
 

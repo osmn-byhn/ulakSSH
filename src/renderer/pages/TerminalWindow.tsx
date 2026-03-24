@@ -5,6 +5,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { CanvasAddon } from '@xterm/addon-canvas';
 import '@xterm/xterm/css/xterm.css';
+import { useSecurity } from '../components/SecurityProvider';
 
 const api = (window as any).api;
 
@@ -27,6 +28,8 @@ interface TabInstance {
 const TerminalWindow: React.FC = () => {
     const { id: serverId } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { settings } = useSecurity();
+    const isLight = settings?.theme === 'light';
 
     const [tabs, setTabs] = useState<TabInstance[]>([]);
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
@@ -51,7 +54,29 @@ const TerminalWindow: React.FC = () => {
             fontSize: 14,
             fontFamily: 'JetBrains Mono, Menlo, Monaco, "Courier New", monospace',
             allowProposedApi: true,
-            theme: {
+            theme: isLight ? {
+                background: '#ffffff',
+                foreground: '#1e293b',
+                cursor: '#6366f1',
+                cursorAccent: '#ffffff',
+                selectionBackground: 'rgba(99,102,241,0.2)',
+                black: '#0f172a',
+                red: '#e11d48',
+                green: '#10b981',
+                yellow: '#d97706',
+                blue: '#2563eb',
+                magenta: '#9333ea',
+                cyan: '#0891b2',
+                white: '#cbd5e1',
+                brightBlack: '#64748b',
+                brightRed: '#f43f5e',
+                brightGreen: '#34d399',
+                brightYellow: '#fbbf24',
+                brightBlue: '#60a5fa',
+                brightMagenta: '#c084fc',
+                brightCyan: '#22d3ee',
+                brightWhite: '#f8fafc',
+            } : {
                 background: '#0d0d14',
                 foreground: '#e2e8f0',
                 cursor: '#6366f1',
@@ -234,11 +259,11 @@ const TerminalWindow: React.FC = () => {
     }, [openTab]);
 
     return (
-        <div className="flex flex-col w-screen h-screen bg-[#0d0d14] overflow-hidden">
+        <div className="flex flex-col w-screen h-screen bg-theme-bg overflow-hidden text-theme-text-primary">
             {/* ── Tab bar ──────────────────────────────────────────────────── */}
             <div
                 className="flex items-center gap-1 px-2 pt-2 pb-0 shrink-0 select-none"
-                style={{ background: '#0d0d14', borderBottom: '1px solid #1e1e2e', minHeight: '38px' }}
+                style={{ background: 'var(--bg-glass)', borderBottom: '1px solid var(--theme-border)', minHeight: '38px' }}
             >
                 {/* Draggable region placeholder (for frameless window) */}
                 <div className="w-2" />
@@ -249,11 +274,11 @@ const TerminalWindow: React.FC = () => {
                         onClick={() => switchTab(tab.id)}
                         className="flex items-center gap-2 px-3 py-1 rounded-t-lg cursor-pointer text-xs font-mono transition-all group/tab"
                         style={{
-                            background: tab.id === activeTabId ? '#1a1a2e' : 'transparent',
+                            background: tab.id === activeTabId ? 'var(--theme-bg-muted)' : 'transparent',
                             borderTop: tab.id === activeTabId ? '1px solid #6366f1' : '1px solid transparent',
-                            borderLeft: tab.id === activeTabId ? '1px solid #1e1e2e' : '1px solid transparent',
-                            borderRight: tab.id === activeTabId ? '1px solid #1e1e2e' : '1px solid transparent',
-                            color: tab.id === activeTabId ? '#e2e8f0' : '#6b7280',
+                            borderLeft: tab.id === activeTabId ? '1px solid var(--theme-border)' : '1px solid transparent',
+                            borderRight: tab.id === activeTabId ? '1px solid var(--theme-border)' : '1px solid transparent',
+                            color: tab.id === activeTabId ? 'var(--text-primary)' : 'var(--text-muted)',
                             maxWidth: '160px',
                         }}
                     >
@@ -308,7 +333,7 @@ const TerminalWindow: React.FC = () => {
             <div
                 ref={terminalContainerRef}
                 className="flex-1 relative overflow-hidden"
-                style={{ background: '#0d0d14', padding: '4px' }}
+                style={{ background: isLight ? '#ffffff' : '#0d0d14', padding: '4px' }}
             />
         </div>
     );

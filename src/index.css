@@ -16,12 +16,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Design Tokens ────────────────────────────────────────────────────────── */
+/* ─── Design Tokens (Dark Mode - Default) ────────────────────────────────── */
 :root {
     --bg-base:        #050810;
     --bg-surface:     #0a0d1a;
     --bg-elevated:    #0f1225;
     --bg-card:        rgba(15, 18, 37, 0.7);
+    --bg-input:       rgba(0, 0, 0, 0.35);
+    --bg-modal:       rgba(10, 13, 26, 0.95);
 
     --accent-cyan:    #06b6d4;
     --accent-violet:  #7c3aed;
@@ -30,11 +32,13 @@
     --accent-amber:   #f59e0b;
 
     --border-subtle:  rgba(255,255,255,0.06);
+    --border-medium:  rgba(255,255,255,0.1);
     --border-glow:    rgba(6,182,212,0.3);
 
     --text-primary:   #e2e8ff;
     --text-secondary: #8892aa;
     --text-muted:     #4a5568;
+    --text-inverted:  #050810;
 
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     font-size: 14px;
@@ -45,6 +49,66 @@
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* ─── Light Mode Overrides ─────────────────────────────────────────────────── */
+.light {
+    --bg-base:        #f8fafc;
+    --bg-surface:     #ffffff;
+    --bg-elevated:    #f1f5f9;
+    --bg-card:        rgba(255, 255, 255, 0.8);
+    --bg-input:       rgba(0, 0, 0, 0.05);
+    --bg-modal:       rgba(255, 255, 255, 0.98);
+
+    --border-subtle:  rgba(0, 0, 0, 0.08);
+    --border-medium:  rgba(0, 0, 0, 0.15);
+    --border-glow:    rgba(6, 182, 212, 0.15);
+
+    --text-primary:   #0f172a;
+    --text-secondary: #475569;
+    --text-muted:     #94a3b8;
+    --text-inverted:  #ffffff;
+}
+
+.light .glass {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+}
+
+.light .glass-bright {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+}
+
+.light .dot-grid-bg {
+    background-image: radial-gradient(circle, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+}
+
+.light .dot-grid-bg::before {
+    background: radial-gradient(ellipse 80% 60% at 15% 10%, rgba(124,58,237,0.05) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 50% at 85% 80%, rgba(6,182,212,0.05) 0%, transparent 60%);
+}
+
+.light input, .light textarea, .light select {
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ─── Tailwind Compatibility Overrides for Light Mode ──────────────────────── */
+/* Specifically targets common white-with-opacity classes used in dark mode */
+.light .bg-white\/5 { background-color: var(--bg-elevated) !important; }
+.light .bg-white\/10 { background-color: var(--bg-elevated) !important; }
+.light .bg-white\/20 { background-color: rgba(0,0,0,0.05) !important; }
+.light .border-white\/5 { border-color: var(--border-subtle) !important; }
+.light .border-white\/10 { border-color: var(--border-medium) !important; }
+.light .text-white\/90 { color: var(--text-primary) !important; }
+.light .text-white\/80 { color: var(--text-secondary) !important; }
+.light .text-white\/50 { color: var(--text-muted) !important; }
+.light .hover\:bg-white\/5:hover { background-color: rgba(0,0,0,0.02) !important; }
+.light .hover\:bg-white\/10:hover { background-color: rgba(0,0,0,0.05) !important; }
+.light .text-cyan-400 { color: var(--accent-cyan) !important; }
+.light .bg-cyan-400\/10 { background-color: rgba(6, 182, 212, 0.1) !important; }
+.light .border-cyan-500\/10 { border-color: rgba(6, 182, 212, 0.15) !important; }
+
 /* ─── Reset ────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -54,6 +118,7 @@ body {
     min-height: 100vh;
     background-color: var(--bg-base);
     overflow: hidden;
+    color: var(--text-primary);
 }
 
 /* Remove default focus ring */
@@ -71,6 +136,7 @@ button:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2p
     background-image: radial-gradient(circle, rgba(6,182,212,0.18) 1px, transparent 1px);
     background-size: 28px 28px;
     position: relative;
+    transition: background-color 0.3s ease;
 }
 .dot-grid-bg::before {
     content: '';
@@ -87,12 +153,13 @@ button:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2p
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border-subtle);
+    transition: background-color 0.3s, border-color 0.3s;
 }
 .glass-bright {
-    background: rgba(20, 24, 50, 0.85);
+    background: var(--bg-modal);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid var(--border-medium);
 }
 
 /* ─── Glow Utilities ───────────────────────────────────────────────────────── */
@@ -104,35 +171,7 @@ button:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2p
 .text-glow-cyan   { text-shadow: 0 0 20px rgba(6,182,212,0.6); }
 .text-glow-violet { text-shadow: 0 0 20px rgba(167,139,250,0.6); }
 
-/* ─── CRT Scanlines ────────────────────────────────────────────────────────── */
-.scanlines {
-    position: relative;
-}
-.scanlines::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.12) 2px,
-        rgba(0,0,0,0.12) 4px
-    );
-    pointer-events: none;
-    border-radius: inherit;
-}
-
 /* ─── Animations ───────────────────────────────────────────────────────────── */
-@keyframes pulse-ring {
-    0%   { transform: scale(1);   opacity: 0.8; }
-    70%  { transform: scale(2.2); opacity: 0; }
-    100% { transform: scale(2.2); opacity: 0; }
-}
-@keyframes flicker {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.85; }
-}
 @keyframes slide-up {
     from { opacity: 0; transform: translateY(12px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -149,10 +188,6 @@ button:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2p
     from { opacity: 0; transform: translateX(100%) scale(0.95); }
     to   { opacity: 1; transform: translateX(0) scale(1); }
 }
-@keyframes shimmer {
-    0%   { background-position: -200% center; }
-    100% { background-position: 200% center; }
-}
 @keyframes blink-cursor {
     0%, 100% { opacity: 1; }
     50%       { opacity: 0; }
@@ -162,23 +197,22 @@ button:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2p
 .animate-slide-right{ animation: slide-right 0.3s cubic-bezier(.22,1,.36,1) both; }
 .animate-fade-in    { animation: fade-in 0.3s ease both; }
 .animate-toast-in   { animation: toast-in 0.4s cubic-bezier(.22,1,.36,1) both; }
-.animate-flicker    { animation: flicker 3s ease-in-out infinite; }
 
 /* ─── Input base overrides ─────────────────────────────────────────────────── */
 input, textarea, select {
-    background: rgba(0,0,0,0.35) !important;
+    background: var(--bg-input) !important;
     border: 1px solid var(--border-subtle) !important;
     color: var(--text-primary) !important;
     font-family: 'JetBrains Mono', monospace !important;
     border-radius: 8px !important;
-    transition: border-color 0.2s, box-shadow 0.2s !important;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s !important;
 }
 input:focus, textarea:focus, select:focus {
     border-color: rgba(6,182,212,0.5) !important;
     box-shadow: 0 0 0 3px rgba(6,182,212,0.1) !important;
     outline: none !important;
 }
-select option { background: #0f1225; color: var(--text-primary); }
+select option { background: var(--bg-elevated); color: var(--text-primary); }
 
 /* ─── Accent Gradient Text ─────────────────────────────────────────────────── */
 .gradient-text {
@@ -193,3 +227,12 @@ select option { background: #0f1225; color: var(--text-primary); }
     background-clip: text;
     -webkit-text-fill-color: transparent;
 }
+
+/* ─── Semantic Helper Classes ─────────────────────────────────────────────── */
+.text-primary { color: var(--text-primary) !important; }
+.text-secondary { color: var(--text-secondary) !important; }
+.text-muted { color: var(--text-muted) !important; }
+.bg-base { background-color: var(--bg-base) !important; }
+.bg-surface { background-color: var(--bg-surface) !important; }
+.bg-elevated { background-color: var(--bg-elevated) !important; }
+.border-subtle { border-color: var(--border-subtle) !important; }

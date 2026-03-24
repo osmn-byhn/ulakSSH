@@ -48,7 +48,6 @@ const Alert: React.FC<AlertProps> = ({ message, type = 'info', onClose, duration
     useEffect(() => {
         if (duration > 0) {
             const timer = setTimeout(onClose, duration);
-            // Animate progress bar
             if (progressRef.current) {
                 progressRef.current.style.transition = `width ${duration}ms linear`;
                 progressRef.current.style.width = '0%';
@@ -63,7 +62,7 @@ const Alert: React.FC<AlertProps> = ({ message, type = 'info', onClose, duration
         <div
             className="fixed bottom-5 right-5 z-[200] animate-toast-in overflow-hidden rounded-xl shadow-2xl min-w-[280px] max-w-sm"
             style={{
-                background: 'rgba(10,13,26,0.95)',
+                background: 'var(--bg-modal)',
                 border: `1px solid ${border}`,
                 backdropFilter: 'blur(20px)',
                 boxShadow: `0 0 30px ${bg}, 0 16px 40px rgba(0,0,0,0.4)`,
@@ -72,13 +71,12 @@ const Alert: React.FC<AlertProps> = ({ message, type = 'info', onClose, duration
         >
             <div className="flex items-center gap-3 px-4 py-3.5">
                 <span style={{ color }}>{icon}</span>
-                <span className="text-sm font-medium flex-1 leading-tight" style={{ color: 'var(--text-primary)' }}>
+                <span className="text-sm font-medium flex-1 leading-tight text-primary">
                     {message}
                 </span>
                 <button
                     onClick={onClose}
-                    className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/10 transition-all shrink-0"
-                    style={{ color: 'var(--text-muted)' }}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/10 transition-all shrink-0 text-muted hover:text-primary"
                 >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -87,7 +85,7 @@ const Alert: React.FC<AlertProps> = ({ message, type = 'info', onClose, duration
             </div>
 
             {/* Progress bar */}
-            <div className="h-0.5 w-full" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div className="h-0.5 w-full" style={{ background: 'var(--border-subtle)' }}>
                 <div
                     ref={progressRef}
                     className="h-full"

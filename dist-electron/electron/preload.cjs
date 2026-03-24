@@ -80,4 +80,10 @@ electron_1.contextBridge.exposeInMainWorld("api", {
         electron_1.ipcRenderer.on('transfer-progress', (_event, data) => callback(data));
         return () => electron_1.ipcRenderer.removeAllListeners('transfer-progress');
     },
+    // ─── App Settings ───────────────────────
+    getSettings: () => electron_1.ipcRenderer.invoke('get-settings'),
+    updateSettings: (updates) => electron_1.ipcRenderer.invoke('update-settings', updates),
+    checkAppPassword: (password) => electron_1.ipcRenderer.invoke('check-app-password', password),
+    setAppPassword: (password) => electron_1.ipcRenderer.invoke('set-app-password', password),
+    checkForUpdates: () => electron_1.ipcRenderer.invoke('check-for-updates'),
 });

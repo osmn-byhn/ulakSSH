@@ -79,8 +79,8 @@ const NeofetchInfo: React.FC<NeofetchInfoProps> = ({ server, connected, systemIn
             <div
                 className="scanlines relative rounded-2xl overflow-hidden animate-fade-in"
                 style={{
-                    background: 'rgba(8, 11, 22, 0.9)',
-                    border: '1px solid rgba(6,182,212,0.15)',
+                    background: 'var(--bg-glass)',
+                    border: '1px solid var(--theme-border)',
                     boxShadow: '0 0 60px rgba(6,182,212,0.06), inset 0 1px 0 rgba(255,255,255,0.04)',
                 }}
             >
@@ -95,11 +95,7 @@ const NeofetchInfo: React.FC<NeofetchInfoProps> = ({ server, connected, systemIn
                     {/* ── Left: OS Icon ─────────────────────────────────────────────── */}
                     <div className="hidden lg:flex flex-col items-center gap-4 shrink-0">
                         <div
-                            className="p-5 rounded-2xl animate-flicker"
-                            style={{
-                                background: 'rgba(6,182,212,0.06)',
-                                border: '1px solid rgba(6,182,212,0.12)',
-                            }}
+                            className="p-5 rounded-2xl animate-flicker bg-theme-bg-muted border border-theme-border"
                         >
                             <OsIcon
                                 os={server.os}
@@ -124,7 +120,7 @@ const NeofetchInfo: React.FC<NeofetchInfoProps> = ({ server, connected, systemIn
                                     <span style={{ color: '#06b6d4', textShadow: '0 0 20px rgba(6,182,212,0.4)' }}>
                                         {server.username}
                                     </span>
-                                    <span style={{ color: 'rgba(255,255,255,0.2)' }}>@</span>
+                                    <span className="text-theme-text-muted opacity-20 mx-1">@</span>
                                     <span style={{ color: '#a78bfa', textShadow: '0 0 20px rgba(167,139,250,0.4)' }}>
                                         {server.name}
                                     </span>
@@ -167,7 +163,7 @@ const NeofetchInfo: React.FC<NeofetchInfoProps> = ({ server, connected, systemIn
                                     <span
                                         className="text-sm"
                                         style={{
-                                            color: item.value === '—' ? 'rgba(255,255,255,0.2)' : 'rgba(226,232,255,0.8)'
+                                            color: item.value === '—' ? 'var(--text-muted)' : 'var(--text-primary)'
                                         }}
                                     >
                                         {item.value}
@@ -178,10 +174,9 @@ const NeofetchInfo: React.FC<NeofetchInfoProps> = ({ server, connected, systemIn
 
                         {/* ── Status bar ──────────────────────────────────────────────── */}
                         <div
-                            className="flex items-center justify-between mt-6 pt-4"
-                            style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                            className="flex items-center justify-between mt-6 pt-4 border-t border-theme-border"
                         >
-                            <span className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.15)' }}>
+                            <span className="text-[10px] font-mono text-theme-text-muted">
                                 port:{server.port} · auth:{server.authType}
                             </span>
                             <div className="flex items-center gap-2">
@@ -219,7 +214,7 @@ const NeofetchInfo: React.FC<NeofetchInfoProps> = ({ server, connected, systemIn
             {connected && stats && (
                 <div className="animate-fade-in">
                     {/* Login History */}
-                    <div className="glass rounded-2xl p-6 border border-white/5 flex flex-col gap-4">
+                    <div className="glass rounded-2xl p-6 border border-theme-border flex flex-col gap-4">
                         <div className="flex items-center gap-3">
                             <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -261,7 +256,7 @@ const NeofetchInfo: React.FC<NeofetchInfoProps> = ({ server, connected, systemIn
             {/* ── Git Repositories Section ────────────────────────────────── */}
             {connected && ULAK_GIT_REPOS && ULAK_GIT_REPOS.length > 0 && (
                 <div className="animate-fade-in">
-                    <div className="glass rounded-2xl p-6 border border-white/5 flex flex-col gap-4">
+                    <div className="glass rounded-2xl p-6 border border-theme-border flex flex-col gap-4">
                         <div className="flex items-center gap-3">
                             <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/20">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -274,9 +269,9 @@ const NeofetchInfo: React.FC<NeofetchInfoProps> = ({ server, connected, systemIn
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[250px] overflow-y-auto pr-2 scrollbar-thin">
                             {ULAK_GIT_REPOS.map((repo, idx) => (
-                                <div key={idx} className="flex flex-col gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-all group">
+                                <div key={idx} className="flex flex-col gap-2 p-3 rounded-xl bg-theme-bg-muted border border-theme-border hover:bg-theme-bg-subtle transition-all group">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[11px] font-bold font-mono text-white/80 truncate pr-2" title={repo.path}>
+                                        <span className="text-[11px] font-bold font-mono text-theme-text-primary truncate pr-2" title={repo.path}>
                                             {repo.name}
                                         </span>
                                         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 text-[9px] font-bold font-mono uppercase tracking-widest shrink-0">

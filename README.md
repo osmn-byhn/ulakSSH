@@ -68,9 +68,17 @@ To run the project in your local environment or contribute:
     ```
 
 4.  **Packaging for Production:**
-    ```bash
-    npm run build
-    ```
+    - To build for current OS (Linux default: rpm, deb, AppImage):
+      ```bash
+      npm run build
+      ```
+    - Specific Platform Builds:
+      ```bash
+      npm run build:linux  # Generates .rpm, .deb, .AppImage
+      npm run build:win    # Generates .exe (NSIS)
+      npm run build:mac    # Generates .dmg (Requires macOS environment or special setup)
+      npm run build:all    # Builds for all platforms
+      ```
 
 ## 📝 License
 

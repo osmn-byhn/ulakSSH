@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSecurity } from "../components/SecurityProvider";
 import {
     Sun,
@@ -18,7 +18,7 @@ import TabSystem from "../components/ui/TabSystem";
 import logo from "../../assets/logo.png";
 import type { Theme } from "../../shared/settings";
 import { GithubFetcher } from '@osmn-byhn/changelog-github-core';
-import { useEffect } from "react";
+
 
 const GeneralTab: React.FC<{ settings: any, handleThemeChange: (theme: Theme) => void }> = ({ settings, handleThemeChange }) => (
     <div className="flex flex-col gap-6 animate-slide-up">

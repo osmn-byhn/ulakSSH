@@ -1,73 +1,81 @@
-# React + TypeScript + Vite
+# 📮 ulakSSH
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**ulakSSH** is a modern, user-friendly, and powerful Electron-based SSH and SFTP management client. It allows you to easily manage your servers, execute commands, transfer files, and monitor system resources in real-time.
 
-Currently, two official plugins are available:
+## 📜 Origin of the Name: "Ulak"
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+The name **"Ulak"** originates from **Old Turkish**. Historically used to refer to a messenger, envoy, or courier, this name symbolizes the fast, reliable, and continuous communication (messaging) between you and your servers. Just like the messengers of ancient times, this application swiftly delivers your commands and data to even the most remote servers.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🚀 Key Features
 
-## Expanding the ESLint configuration
+### 💻 Advanced SSH Terminal
+- **xterm.js Power:** A fluid and error-free experience with the industry-standard terminal emulator.
+- **Color & Typography:** Highly readable, customizable terminal themes.
+- **Shortcut Support:** Keyboard shortcuts to speed up terminal operations.
+- **Automatic Elevation:** Support for automatic `sudo su` root access upon connection, configurable in settings.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 📂 SFTP and File Management
+- **Visual Interface:** Navigate the file system without being overwhelmed by the command line.
+- **Fast Transfer:** Quick file upload/download with drag-and-drop support and queue management.
+- **File Editing:** Open and edit files directly on the server using the built-in code editor (based on Monaco Editor).
+- **Permission Management:** Easily change file and folder permissions (chmod).
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 📜 Smart Script Management
+- **Script Library:** Save your frequently used command sequences (e.g., Docker restart, log cleaning, updates).
+- **Color Coding:** Categorize your scripts by assigning different colors.
+- **One-Click Execution:** Trigger scripts instantly from the server detail page.
+- **Output Tracking:** Monitor the output of running scripts in real-time through a dedicated log window.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 📊 Real-Time System Monitoring
+- **CPU & RAM:** Track your server's instantaneous processor load and memory usage graphically.
+- **Disk Status:** View disk partition occupancy rates and read/write speeds.
+- **Network Traffic:** Analyze incoming and outgoing data traffic (Inbound/Outbound) with bandwidth charts.
+- **System Info:** Access OS version, uptime, and hardware details at a glance.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🛠️ Technology Stack
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+-   **Core:** [Electron](https://www.electronjs.org/) (Desktop application framework)
+-   **Build Tools:** [Vite](https://vitejs.dev/) & [TypeScript](https://www.typescriptlang.org/)
+-   **Frontend:** [React](https://reactjs.org/) + [Tailwind CSS](https://tailwindcss.com/)
+-   **Visualization:** [Recharts](https://recharts.org/) (Charts) & [Lucide](https://lucide.dev/) (Icons)
+-   **Terminal:** [xterm.js](https://xtermjs.org/)
+-   **Communication:** [ssh2](https://github.com/mscdex/ssh2) (SSH2 library for Node.js)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
+
+## 📦 Installation and Development
+
+To run the project in your local environment or contribute:
+
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/osmn-byhn/ulakSSH.git
+    cd ulakSSH
+    ```
+
+2.  **Install Dependencies:**
+    ```bash
+    npm install
+    ```
+
+3.  **Development Mode:**
+    ```bash
+    npm run dev
+    ```
+
+4.  **Packaging for Production:**
+    ```bash
+    npm run build:electron
+    ```
+
+## 📝 License
+
+This project is licensed under the **MIT License**. For more information, please see the `LICENSE` file.
+
+---
+
+Developed by: **[Osman Beyhan](https://github.com/osmn-byhn)**

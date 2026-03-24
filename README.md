@@ -69,7 +69,7 @@ To run the project in your local environment or contribute:
 
 4.  **Packaging for Production:**
     ```bash
-    npm run build:electron
+    npm run build
     ```
 
 ## 📝 License

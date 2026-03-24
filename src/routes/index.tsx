@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet } from "react-router-dom";
+import { createHashRouter, Outlet } from "react-router-dom";
 import Home from "../renderer/pages/Home";
 import Settings from "../renderer/pages/Settings";
 import ServerDetail from "../renderer/pages/ServerDetail";
@@ -23,7 +23,7 @@ const Layout = () => {
     );
 };
 
-const router = createBrowserRouter([
+const router = createHashRouter([
     {
         element: <AppWrapper />,
         children: [

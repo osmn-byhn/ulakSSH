@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-const Logo = "/logo.png";
+import Logo from '../../../assets/logo.png';
 
 const Titlebar: React.FC = () => {
     const api = (window as any).api;

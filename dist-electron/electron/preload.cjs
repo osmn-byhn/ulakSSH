@@ -86,4 +86,5 @@ electron_1.contextBridge.exposeInMainWorld("api", {
     checkAppPassword: (password) => electron_1.ipcRenderer.invoke('check-app-password', password),
     setAppPassword: (password) => electron_1.ipcRenderer.invoke('set-app-password', password),
     checkForUpdates: () => electron_1.ipcRenderer.invoke('check-for-updates'),
+    openExternal: (url) => electron_1.ipcRenderer.send('open-external', url),
 });

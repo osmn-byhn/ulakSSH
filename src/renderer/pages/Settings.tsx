@@ -7,14 +7,15 @@ import {
     Shield,
     Lock,
     Info,
-    Globe,
     Github,
-    Heart,
+    WholeWord,
     CheckCircle2,
     Database,
-    Cpu
+    Cpu,
+    Globe
 } from 'lucide-react';
 import TabSystem from "../components/ui/TabSystem";
+import logo from "../../assets/logo.png";
 import type { Theme } from "../../shared/settings";
 import { GithubFetcher } from '@osmn-byhn/changelog-github-core';
 import { useEffect } from "react";
@@ -131,7 +132,7 @@ const AboutTab: React.FC<{ version: string, isCheckingUpdate: boolean, onCheckUp
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-violet-500 opacity-50" />
 
             <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-white shadow-2xl relative group">
-                <img src="/logo.png" className="w-16 h-16 opacity-90 group-hover:scale-110 transition-transform" />
+                <img src={logo} className="w-16 h-16 opacity-90 group-hover:scale-110 transition-transform" />
                 <div className="absolute inset-0 rounded-3xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
 
@@ -161,11 +162,17 @@ const AboutTab: React.FC<{ version: string, isCheckingUpdate: boolean, onCheckUp
             </div>
 
             <div className="flex gap-4 w-full mt-4">
-                <button className="flex-1 glass p-3 rounded-2xl border-theme-border flex items-center justify-center gap-2 text-xs font-bold hover:bg-theme-bg-subtle transition-all text-theme-text-primary">
+                <button 
+                    onClick={() => (window as any).api.openExternal('https://github.com/osmn-byhn/ulakSSH')}
+                    className="flex-1 glass p-3 rounded-2xl border-theme-border flex items-center justify-center gap-2 text-xs font-bold hover:bg-theme-bg-subtle transition-all text-theme-text-primary"
+                >
                     <Github className="w-4 h-4" /> GitHub
                 </button>
-                <button className="flex-1 glass p-3 rounded-2xl border-theme-border flex items-center justify-center gap-2 text-xs font-bold hover:bg-theme-bg-subtle transition-all text-rose-400">
-                    <Heart className="w-4 h-4" /> Support
+                <button 
+                    onClick={() => (window as any).api.openExternal('https://ulakssh.osmanbeyhan.com')}
+                    className="flex-1 glass p-3 rounded-2xl border-theme-border flex items-center justify-center gap-2 text-xs font-bold hover:bg-theme-bg-subtle transition-all text-rose-400"
+                >
+                    <Globe className="w-4 h-4" /> Website
                 </button>
             </div>
         </div>
@@ -299,8 +306,8 @@ const Settings: React.FC = () => {
                                 id: 'about',
                                 label: 'About',
                                 icon: <Info className="w-3.5 h-3.5" />,
-                                content: <AboutTab 
-                                    version={version} 
+                                content: <AboutTab
+                                    version={version}
                                     isCheckingUpdate={isCheckingUpdate}
                                     onCheckUpdate={handleCheckUpdate}
                                 />

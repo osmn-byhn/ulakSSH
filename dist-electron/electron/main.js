@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -686,6 +686,9 @@ ipcMain.handle('check-app-password', async (event, password) => {
 ipcMain.handle('set-app-password', async (event, password) => {
     const { setAppPassword } = await import('../src/main/utils/settings.js');
     return setAppPassword(password);
+});
+ipcMain.on('open-external', (event, url) => {
+    shell.openExternal(url);
 });
 app.whenReady().then(() => {
     Menu.setApplicationMenu(null);

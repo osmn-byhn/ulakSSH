@@ -97,4 +97,5 @@ contextBridge.exposeInMainWorld("api", {
   checkAppPassword: (password: string) => ipcRenderer.invoke('check-app-password', password),
   setAppPassword: (password: string | null) => ipcRenderer.invoke('set-app-password', password),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  openExternal: (url: string) => ipcRenderer.send('open-external', url),
 });
